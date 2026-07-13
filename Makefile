@@ -18,7 +18,7 @@ portflag = $(if $(PORT),$(argsep) --port $(PORT))
 
 .DEFAULT_GOAL := help
 
-.PHONY: help install dev build preview lint typecheck clean distclean
+.PHONY: help install dev build preview lint typecheck test test-watch clean distclean
 
 help: ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) \
@@ -39,8 +39,15 @@ preview: build ## Preview the production build locally (PORT=n to set port)
 lint: node_modules ## Run oxlint
 	$(PNPM) run lint
 
-typecheck: node_modules ## Type-check without emitting
+typecheck: node_modules ## Type-check app + tests without emitting
 	$(PNPM) exec tsc -- --noEmit -p tsconfig.app.json
+	$(PNPM) run test:types
+
+test: node_modules ## Run the test suite once
+	$(PNPM) run test
+
+test-watch: node_modules ## Run tests in watch mode
+	$(PNPM) run test:watch
 
 clean: ## Remove build output
 	rm -rf dist
