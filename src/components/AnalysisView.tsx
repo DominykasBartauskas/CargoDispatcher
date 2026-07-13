@@ -3,7 +3,7 @@ import type { ReactNode } from 'react'
 import { isFluid } from '../lib/catalog'
 import { fmt, ruleAllows, ruleText } from '../lib/analysis'
 import type { Analysis } from '../lib/analysis'
-import type { Platform, Station, Truck, TruckStation, World } from '../lib/types'
+import type { Drone, DronePort, Platform, Station, Truck, TruckStation, World } from '../lib/types'
 
 /** Render a list interleaved with <br/>, matching the legacy join('<br>'). */
 function listBr<T>(items: T[], render: (item: T) => ReactNode): ReactNode {
@@ -72,7 +72,129 @@ export function AnalysisView({ world, analysis: a }: { world: World; analysis: A
       {world.trucks.map((tk) => (
         <TruckManifest key={tk.id} truck={tk} world={world} a={a} />
       ))}
+
+      <h2 className="sec">Drone ports · computed throughput</h2>
+      {!world.dronePorts.length && <div className="empty">No drone ports defined.</div>}
+      {world.dronePorts.map((p) => (
+        <DronePortBoard key={p.id} port={p} a={a} />
+      ))}
+
+      <h2 className="sec">Drone manifests · what each drone shuttles</h2>
+      {!world.drones.length && <div className="empty">No drones defined.</div>}
+      {world.drones.map((dr) => (
+        <DroneManifest key={dr.id} drone={dr} world={world} a={a} />
+      ))}
     </>
+  )
+}
+
+function DronePortBoard({ port, a }: { port: DronePort; a: Analysis }) {
+  const sends = a.droneFlows.filter((f) => f.fromPort === port)
+  const receives = a.droneFlows.filter((f) => f.toPort === port)
+  return (
+    <div className="board">
+      <h3>{port.name}</h3>
+      <table className="flow">
+        <tbody>
+          <tr>
+            <th style={{ width: 90 }}>Direction</th>
+            <th>Contents</th>
+            <th style={{ width: 220 }}>Link</th>
+          </tr>
+          <tr>
+            <td>
+              <span className="modechip load">Sends</span>
+            </td>
+            <td>
+              {sends.length ? (
+                listBr(sends, (f) => (
+                  <>
+                    {f.item} <span className="rate">{fmt(f.rate)}/min</span>
+                  </>
+                ))
+              ) : (
+                <span className="dimtxt">nothing</span>
+              )}
+            </td>
+            <td>
+              {sends.length ? (
+                listBr(sends, (f) => (
+                  <>
+                    → {f.toPort.name} <span className="dimtxt">({f.drone.name})</span>
+                  </>
+                ))
+              ) : (
+                <span className="dimtxt">—</span>
+              )}
+            </td>
+          </tr>
+          <tr>
+            <td>
+              <span className="modechip unload">Receives</span>
+            </td>
+            <td>
+              {receives.length ? (
+                listBr(receives, (f) => (
+                  <>
+                    {f.item} <span className="rate">{fmt(f.rate)}/min</span>
+                  </>
+                ))
+              ) : (
+                <span className="dimtxt">nothing</span>
+              )}
+            </td>
+            <td>
+              {receives.length ? (
+                listBr(receives, (f) => (
+                  <>
+                    ← {f.fromPort.name} <span className="dimtxt">({f.drone.name})</span>
+                  </>
+                ))
+              ) : (
+                <span className="dimtxt">—</span>
+              )}
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  )
+}
+
+function DroneManifest({ drone, world, a }: { drone: Drone; world: World; a: Analysis }) {
+  const portById = (id: string | null) => (id ? world.dronePorts.find((p) => p.id === id) : undefined)
+  const home = portById(drone.homeId)
+  const dest = portById(drone.destId)
+  const flows = a.droneFlows.filter((f) => f.drone === drone)
+  const outbound = flows.filter((f) => home && f.fromPort === home)
+  const inbound = flows.filter((f) => dest && f.fromPort === dest)
+
+  return (
+    <div className="board">
+      <h3>{drone.name}</h3>
+      <div className="manif">
+        <div className="mstop">
+          <b>{home ? home.name : <i>no home port</i>}</b> <span className="dimtxt">⇄</span>{' '}
+          <b>{dest ? dest.name : <i>no destination port</i>}</b>
+        </div>
+        {home && dest && home !== dest && (
+          <>
+            <div className="mstop">
+              <span className="ld">
+                → delivers to {dest.name}:{' '}
+                {outbound.length ? outbound.map((f) => `${f.item} ${fmt(f.rate)}/min`).join(', ') : 'nothing'}
+              </span>
+            </div>
+            <div className="mstop">
+              <span className="ul">
+                ← delivers to {home.name}:{' '}
+                {inbound.length ? inbound.map((f) => `${f.item} ${fmt(f.rate)}/min`).join(', ') : 'nothing'}
+              </span>
+            </div>
+          </>
+        )}
+      </div>
+    </div>
   )
 }
 

@@ -9,6 +9,8 @@ import { TrainsView } from './components/TrainsView'
 import { StationsView } from './components/StationsView'
 import { TrucksView } from './components/TrucksView'
 import { TruckStationsView } from './components/TruckStationsView'
+import { DronesView } from './components/DronesView'
+import { DronePortsView } from './components/DronePortsView'
 import { AnalysisView } from './components/AnalysisView'
 import { ExportDialog } from './components/ExportDialog'
 import { ImportDialog } from './components/ImportDialog'
@@ -81,6 +83,10 @@ function App() {
           <TrucksView world={world} collapsed={state.collapsed} update={update} />
         ) : state.section === 'truckStations' ? (
           <TruckStationsView world={world} collapsed={state.collapsed} update={update} />
+        ) : state.section === 'drones' ? (
+          <DronesView world={world} collapsed={state.collapsed} update={update} />
+        ) : state.section === 'dronePorts' ? (
+          <DronePortsView world={world} collapsed={state.collapsed} update={update} />
         ) : (
           <AnalysisView world={world} analysis={analysis} />
         )}

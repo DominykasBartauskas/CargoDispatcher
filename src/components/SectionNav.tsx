@@ -6,6 +6,8 @@ const SECTIONS: [Section, string][] = [
   ['stations', 'Train Stations'],
   ['trucks', 'Trucks & routes'],
   ['truckStations', 'Truck Stations'],
+  ['drones', 'Drones & routes'],
+  ['dronePorts', 'Drone Ports'],
   ['analysis', 'Analysis'],
 ]
 

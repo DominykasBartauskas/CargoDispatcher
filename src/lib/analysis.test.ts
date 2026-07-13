@@ -9,6 +9,8 @@ import {
 } from './analysis'
 import type {
   CarType,
+  Drone,
+  DronePort,
   Platform,
   PlatItem,
   Rule,
@@ -39,6 +41,8 @@ const world = (stations: Station[], trains: Train[]): World => ({
   trains,
   trucks: [],
   truckStations: [],
+  drones: [],
+  dronePorts: [],
 })
 
 /* ---- truck builders ---- */
@@ -57,6 +61,27 @@ const truckWorld = (truckStations: TruckStation[], trucks: Truck[]): World => ({
   trains: [],
   trucks,
   truckStations,
+  drones: [],
+  dronePorts: [],
+})
+
+/* ---- drone builders ---- */
+const dPort = (id: string, name: string, items: PlatItem[] = []): DronePort => ({ id, name, items })
+const drone = (id: string, name: string, homeId: string | null, destId: string | null): Drone => ({
+  id,
+  name,
+  homeId,
+  destId,
+})
+const droneWorld = (dronePorts: DronePort[], drones: Drone[]): World => ({
+  id: 'w',
+  name: 'W',
+  stations: [],
+  trains: [],
+  trucks: [],
+  truckStations: [],
+  drones,
+  dronePorts,
 })
 
 describe('helpers', () => {
@@ -345,5 +370,64 @@ describe('analyze — trucks', () => {
         e.includes('<b>T</b> is set to load <b>Copper Ore</b> at A, but can\'t: A has no load dock providing it.'),
       ),
     ).toBe(true)
+  })
+})
+
+describe('analyze — drones', () => {
+  it('shuttles cargo both ways between a linked pair', () => {
+    const w = droneWorld(
+      [dPort('a', 'A', [{ item: 'Iron Plate', rate: 30 }]), dPort('b', 'B', [{ item: 'Screw', rate: 60 }])],
+      [drone('d', 'D', 'a', 'b')],
+    )
+    const a = analyze(w)
+    expect(a.errors).toEqual([])
+    expect(a.warnings).toEqual([])
+    expect(a.droneFlows).toHaveLength(2)
+    expect(a.droneFlows).toContainEqual(
+      expect.objectContaining({ item: 'Iron Plate', rate: 30, fromPort: expect.objectContaining({ id: 'a' }), toPort: expect.objectContaining({ id: 'b' }) }),
+    )
+    expect(a.droneFlows).toContainEqual(
+      expect.objectContaining({ item: 'Screw', rate: 60, fromPort: expect.objectContaining({ id: 'b' }), toPort: expect.objectContaining({ id: 'a' }) }),
+    )
+  })
+
+  it('warns on unset home/destination and a self-link', () => {
+    const noEnds = analyze(droneWorld([], [drone('d', 'D', null, null)]))
+    expect(noEnds.warnings).toContain('<b>D</b> has no home port set.')
+    expect(noEnds.warnings).toContain('<b>D</b> has no destination port set.')
+    const self = analyze(droneWorld([dPort('a', 'A', [{ item: 'Iron Plate', rate: 30 }])], [drone('d', 'D', 'a', 'a')]))
+    expect(self.warnings).toContain(
+      '<b>D</b> has the same home and destination port, so it can\'t move anything.',
+    )
+  })
+
+  it('errors when two drones share a home port', () => {
+    const w = droneWorld(
+      [dPort('a', 'A'), dPort('b', 'B'), dPort('c', 'C')],
+      [drone('d1', 'D1', 'a', 'b'), drone('d2', 'D2', 'a', 'c')],
+    )
+    const a = analyze(w)
+    expect(a.errors.some((e) => e.includes('share the home port <b>A</b>'))).toBe(true)
+  })
+
+  it('errors when two drones pick up the same feed', () => {
+    const w = droneWorld(
+      [dPort('h1', 'H1'), dPort('h2', 'H2'), dPort('p', 'P', [{ item: 'Iron Plate', rate: 30 }])],
+      [drone('d1', 'D1', 'h1', 'p'), drone('d2', 'D2', 'h2', 'p')],
+    )
+    const a = analyze(w)
+    expect(
+      a.errors.some((e) => e.includes('<b>D1</b> and <b>D2</b> both pick up <b>Iron Plate</b> from <b>P</b>')),
+    ).toBe(true)
+  })
+
+  it('warns about an orphaned port and a fluid assigned to a port', () => {
+    const orphan = analyze(droneWorld([dPort('a', 'A'), dPort('x', 'X')], [drone('d', 'D', 'a', 'a')]))
+    expect(orphan.warnings.some((warn) => warn.includes("<b>X</b> isn't linked to any drone"))).toBe(true)
+
+    const fluid = analyze(
+      droneWorld([dPort('a', 'A', [{ item: 'Water', rate: 300 }]), dPort('b', 'B')], [drone('d', 'D', 'a', 'b')]),
+    )
+    expect(fluid.warnings.some((warn) => warn.includes('is set to send Water, which is a fluid'))).toBe(true)
   })
 })

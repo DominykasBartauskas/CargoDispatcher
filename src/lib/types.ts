@@ -5,7 +5,14 @@ export type CarType = 'E' | 'F' | 'L'
 export type PlatformType = 'regular' | 'fluid' | 'empty'
 export type PlatformMode = 'load' | 'unload'
 export type RuleMode = 'any' | 'none' | 'list'
-export type Section = 'trains' | 'stations' | 'trucks' | 'truckStations' | 'analysis'
+export type Section =
+  | 'trains'
+  | 'stations'
+  | 'trucks'
+  | 'truckStations'
+  | 'drones'
+  | 'dronePorts'
+  | 'analysis'
 
 /** Road vehicles. Only 'fluid-truck' carries fluids; the rest carry solids. */
 export type TruckType = 'truck' | 'fluid-truck' | 'tractor' | 'explorer'
@@ -65,6 +72,23 @@ export interface TruckStation {
   items: PlatItem[]
 }
 
+/** A drone port: an aerial dock. Its `items` are what it sends out; a linked
+    drone flies them to the paired port, and brings that port's items back. */
+export interface DronePort {
+  id: string
+  name: string
+  items: PlatItem[]
+}
+
+/** An aerial vehicle: shuttles cargo both ways between exactly two ports —
+    its home port and one destination port. */
+export interface Drone {
+  id: string
+  name: string
+  homeId: string | null
+  destId: string | null
+}
+
 export interface World {
   id: string
   name: string
@@ -72,6 +96,8 @@ export interface World {
   stations: Station[]
   trucks: Truck[]
   truckStations: TruckStation[]
+  drones: Drone[]
+  dronePorts: DronePort[]
 }
 
 export interface AppState {

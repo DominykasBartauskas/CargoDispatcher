@@ -1,6 +1,8 @@
 import {
   defaultState,
   migrateWorld,
+  newDrone,
+  newDronePort,
   newPlatform,
   newStation,
   newStop,
@@ -47,6 +49,18 @@ describe('factories', () => {
     expect(st.type).toBe('regular')
     expect(st.mode).toBe('load')
     expect(st.items).toEqual([{ item: '', rate: 60 }])
+  })
+  it('newDrone starts unlinked', () => {
+    const d = newDrone(3)
+    expect(d.name).toBe('Drone 3')
+    expect(d.homeId).toBeNull()
+    expect(d.destId).toBeNull()
+    expect(d.id).toBeTruthy()
+  })
+  it('newDronePort starts with one blank send item', () => {
+    const p = newDronePort(2)
+    expect(p.name).toBe('Drone Port 2')
+    expect(p.items).toEqual([{ item: '', rate: 60 }])
   })
 })
 
@@ -97,11 +111,13 @@ describe('migrateWorld', () => {
     expect(w.trains[0].cars).toEqual(['E', 'F', 'F', 'L'])
     expect(w.trains[0].stops).toEqual([])
   })
-  it('backfills empty truck arrays on a legacy train-only world', () => {
+  it('backfills empty truck and drone arrays on a legacy train-only world', () => {
     const w = { id: 'w', name: 'W', trains: [], stations: [] } as unknown as World
     migrateWorld(w)
     expect(w.trucks).toEqual([])
     expect(w.truckStations).toEqual([])
+    expect(w.drones).toEqual([])
+    expect(w.dronePorts).toEqual([])
   })
   it('sanitizes an unknown truck type and truck-station shape', () => {
     const w = {

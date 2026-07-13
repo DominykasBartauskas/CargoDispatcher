@@ -1,5 +1,15 @@
 import { isFluid } from './catalog'
-import type { Platform, PlatItem, Rule, Station, Truck, TruckStation, World } from './types'
+import type {
+  Drone,
+  DronePort,
+  Platform,
+  PlatItem,
+  Rule,
+  Station,
+  Truck,
+  TruckStation,
+  World,
+} from './types'
 
 /** Escapes user-supplied text for the HTML fragments the analysis emits. */
 export const esc = (s: unknown): string =>
@@ -78,6 +88,15 @@ export interface TruckDeposit {
   fromStation: TruckStation
 }
 
+/** One delivery leg: `drone` carries `item` from `fromPort` to `toPort`. */
+export interface DroneFlow {
+  drone: Drone
+  fromPort: DronePort
+  toPort: DronePort
+  item: string
+  rate: number
+}
+
 export interface Analysis {
   errors: string[]
   warnings: string[]
@@ -85,6 +104,7 @@ export interface Analysis {
   deposits: Deposit[]
   truckPickups: TruckPickup[]
   truckDeposits: TruckDeposit[]
+  droneFlows: DroneFlow[]
 }
 
 export function analyze(w: World): Analysis {
@@ -363,11 +383,14 @@ export function analyze(w: World): Analysis {
     })
   })
 
-  /* trucks are an independent network; run their pass and merge the issues
-     (trains first, so worlds with no trucks are unaffected) */
+  /* trucks and drones are independent networks; run their passes and merge the
+     issues (trains first, so worlds with no trucks/drones are unaffected) */
   const t = analyzeTrucks(w)
   errors.push(...t.errors)
   warnings.push(...t.warnings)
+  const d = analyzeDrones(w)
+  errors.push(...d.errors)
+  warnings.push(...d.warnings)
 
   return {
     errors,
@@ -376,6 +399,7 @@ export function analyze(w: World): Analysis {
     deposits,
     truckPickups: t.truckPickups,
     truckDeposits: t.truckDeposits,
+    droneFlows: d.droneFlows,
   }
 }
 
@@ -615,4 +639,106 @@ export function analyzeTrucks(w: World): {
   })
 
   return { errors, warnings, truckPickups, truckDeposits }
+}
+
+/**
+ * Drone pass. A drone links a home port to one destination port and shuttles
+ * cargo both ways: each port's `items` (solids only — drones carry items, so
+ * package fluids first) are flown to the other port. Delivery between the two
+ * ports is guaranteed, so there is no "never unloaded" case; the checks are
+ * about links (missing/self/duplicate home) and feed contention.
+ */
+export function analyzeDrones(w: World): {
+  errors: string[]
+  warnings: string[]
+  droneFlows: DroneFlow[]
+} {
+  const errors: string[] = []
+  const warnings: string[] = []
+  const droneFlows: DroneFlow[] = []
+  const portById: Record<string, DronePort> = {}
+  ;(w.dronePorts || []).forEach((p) => (portById[p.id] = p))
+
+  /** Items a port can actually send: named solids (fluids can't ride a drone). */
+  const sendable = (p: DronePort): PlatItem[] => (p.items || []).filter((pi) => pi.item && !isFluid(pi.item))
+
+  /* port config */
+  ;(w.dronePorts || []).forEach((p) => {
+    ;(p.items || [])
+      .filter((x) => x.item)
+      .forEach((x) => {
+        if (isFluid(x.item))
+          warnings.push(
+            `<b>${esc(p.name)}</b> is set to send ${esc(x.item)}, which is a fluid. Drones carry items only — package it first. It will send nothing as configured.`,
+          )
+        else if (!(+x.rate > 0)) warnings.push(`<b>${esc(p.name)}</b> sends ${esc(x.item)} at 0/min. Set a rate.`)
+      })
+  })
+
+  /* per-drone links and flows */
+  ;(w.drones || []).forEach((dr) => {
+    const home = dr.homeId ? portById[dr.homeId] : undefined
+    const dest = dr.destId ? portById[dr.destId] : undefined
+    if (!home) warnings.push(`<b>${esc(dr.name)}</b> has no home port set.`)
+    if (!dest) warnings.push(`<b>${esc(dr.name)}</b> has no destination port set.`)
+    if (!home || !dest) return
+    if (home === dest) {
+      warnings.push(`<b>${esc(dr.name)}</b> has the same home and destination port, so it can't move anything.`)
+      return
+    }
+    let moved = false
+    ;([[home, dest], [dest, home]] as [DronePort, DronePort][]).forEach(([from, to]) => {
+      sendable(from).forEach((pi) => {
+        moved = true
+        droneFlows.push({ drone: dr, fromPort: from, toPort: to, item: pi.item.trim(), rate: +pi.rate || 0 })
+      })
+    })
+    if (!moved)
+      warnings.push(
+        `<b>${esc(dr.name)}</b> links <b>${esc(home.name)}</b> and <b>${esc(dest.name)}</b>, but neither port has items to send.`,
+      )
+  })
+
+  /* ERROR: a port can host only one drone (its home) */
+  const byHome: Record<string, Drone[]> = {}
+  ;(w.drones || []).forEach((dr) => {
+    if (dr.homeId) (byHome[dr.homeId] = byHome[dr.homeId] || []).push(dr)
+  })
+  Object.entries(byHome).forEach(([hid, ds]) => {
+    if (ds.length < 2) return
+    const p = portById[hid]
+    if (!p) return
+    const names = ds.map((dr) => `<b>${esc(dr.name)}</b>`).join(' and ')
+    errors.push(
+      `${names} share the home port <b>${esc(p.name)}</b>, but a drone port can host only one drone. Give each its own home port.`,
+    )
+  })
+
+  /* ERROR: the same feed picked up by two drones */
+  const byFeed: Record<string, DroneFlow[]> = {}
+  droneFlows.forEach((f) => {
+    const key = f.fromPort.id + '|' + f.item.toLowerCase()
+    ;(byFeed[key] = byFeed[key] || []).push(f)
+  })
+  Object.values(byFeed).forEach((list) => {
+    const drones = [...new Map(list.map((f) => [f.drone.id, f.drone])).values()]
+    if (drones.length < 2) return
+    const f = list[0]
+    const names = drones.map((dr) => `<b>${esc(dr.name)}</b>`).join(' and ')
+    errors.push(
+      `${names} both pick up <b>${esc(f.item)}</b> from <b>${esc(f.fromPort.name)}</b>. Each feed should go to one drone. Link that port with a single drone.`,
+    )
+  })
+
+  /* orphaned ports */
+  const endpoints = new Set<string>()
+  ;(w.drones || []).forEach((dr) => {
+    if (dr.homeId) endpoints.add(dr.homeId)
+    if (dr.destId) endpoints.add(dr.destId)
+  })
+  ;(w.dronePorts || []).forEach((p) => {
+    if (!endpoints.has(p.id)) warnings.push(`<b>${esc(p.name)}</b> isn't linked to any drone, so it moves no cargo.`)
+  })
+
+  return { errors, warnings, droneFlows }
 }

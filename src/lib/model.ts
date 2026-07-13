@@ -2,6 +2,8 @@ import { isFluid } from './catalog'
 import type {
   AppState,
   CarType,
+  Drone,
+  DronePort,
   Platform,
   Station,
   Stop,
@@ -16,7 +18,7 @@ export const uid = (): string =>
   crypto.randomUUID ? crypto.randomUUID() : 'id-' + Math.random().toString(36).slice(2) + Date.now()
 
 export function newWorld(name: string): World {
-  return { id: uid(), name, trains: [], stations: [], trucks: [], truckStations: [] }
+  return { id: uid(), name, trains: [], stations: [], trucks: [], truckStations: [], drones: [], dronePorts: [] }
 }
 export function newTrain(n: number): Train {
   return { id: uid(), name: 'Train ' + n, cars: ['E', 'F', 'F'], stops: [] }
@@ -32,6 +34,12 @@ export function newTruck(n: number): Truck {
 }
 export function newTruckStation(n: number): TruckStation {
   return { id: uid(), name: 'Truck Station ' + n, type: 'regular', mode: 'load', items: [{ item: '', rate: 60 }] }
+}
+export function newDrone(n: number): Drone {
+  return { id: uid(), name: 'Drone ' + n, homeId: null, destId: null }
+}
+export function newDronePort(n: number): DronePort {
+  return { id: uid(), name: 'Drone Port ' + n, items: [{ item: '', rate: 60 }] }
 }
 export function newStop(stationId: string | null): Stop {
   return { stationId, load: { mode: 'any', items: [] }, unload: { mode: 'any', items: [] } }
@@ -84,6 +92,16 @@ export function migrateWorld(w: World): World {
     type: st.type === 'fluid' ? 'fluid' : 'regular',
     mode: st.mode === 'unload' ? 'unload' : 'load',
     items: Array.isArray(st.items) ? st.items : [],
+  }))
+  /* Drones & drone ports were added after trucks; backfill and sanitize. */
+  w.drones = (w.drones || []).map((d) => ({
+    ...d,
+    homeId: d.homeId ?? null,
+    destId: d.destId ?? null,
+  }))
+  w.dronePorts = (w.dronePorts || []).map((p) => ({
+    ...p,
+    items: Array.isArray(p.items) ? p.items : [],
   }))
   return w
 }

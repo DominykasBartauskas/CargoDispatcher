@@ -22,7 +22,7 @@ describe('App shell', () => {
     const user = userEvent.setup()
     renderApp()
     await user.click(screen.getByRole('button', { name: 'Train Stations' }))
-    expect(screen.getByText(/No stations yet/i)).toBeInTheDocument()
+    expect(screen.getByText(/No train stations yet/i)).toBeInTheDocument()
   })
 })
 
@@ -90,6 +90,26 @@ describe('trucks & truck stations', () => {
     await user.click(screen.getByRole('button', { name: 'Fluid' }))
     await user.click(screen.getByRole('button', { name: 'Unload' }))
     expect(screen.getByText(/receives a fluid that docked trucks drop here/i)).toBeInTheDocument()
+  })
+})
+
+describe('drones & drone ports', () => {
+  it('links a drone to a drone port', async () => {
+    const user = userEvent.setup()
+    renderApp()
+    // a port first
+    await user.click(screen.getByRole('button', { name: 'Drone Ports' }))
+    await user.click(screen.getByRole('button', { name: '+ Add drone port' }))
+    expect(screen.getByDisplayValue('Drone Port 1')).toBeInTheDocument()
+    // then a drone
+    await user.click(screen.getByRole('button', { name: 'Drones & routes' }))
+    await user.click(screen.getByRole('button', { name: '+ Add drone' }))
+    expect(screen.getByDisplayValue('Drone 1')).toBeInTheDocument()
+
+    const [home, dest] = screen.getAllByRole('combobox')
+    expect(dest).toBeDefined()
+    await user.selectOptions(home, 'Drone Port 1')
+    expect((within(home).getByRole('option', { name: 'Drone Port 1' }) as HTMLOptionElement).selected).toBe(true)
   })
 })
 
