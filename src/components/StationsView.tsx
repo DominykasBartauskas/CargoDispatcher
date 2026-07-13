@@ -76,12 +76,12 @@ export function StationsView({ world, collapsed, update }: Props) {
               update((s) => void s.worlds[s.active].stations.push(newStation(s.worlds[s.active].stations.length + 1)))
             }
           >
-            + Add station
+            + Add train station
           </button>
         </span>
       </div>
 
-      {!world.stations.length && <div className="empty">No stations yet.</div>}
+      {!world.stations.length && <div className="empty">No train stations yet.</div>}
 
       {world.stations.map((st) => {
         const closed = !!collapsed[st.id]

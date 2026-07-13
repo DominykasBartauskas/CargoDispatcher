@@ -62,7 +62,7 @@ describe('stations & platforms', () => {
     const user = userEvent.setup()
     renderApp()
     await user.click(screen.getByRole('button', { name: 'Train Stations' }))
-    await user.click(screen.getByRole('button', { name: '+ Add station' }))
+    await user.click(screen.getByRole('button', { name: '+ Add train station' }))
     expect(screen.getByDisplayValue('Station 1')).toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: 'Unload' }))
     expect(screen.getByText(/receives solids that docked trains drop here/i)).toBeInTheDocument()
@@ -99,7 +99,7 @@ describe('routes & rules', () => {
     const { container } = renderApp()
     // need a station first
     await user.click(screen.getByRole('button', { name: 'Train Stations' }))
-    await user.click(screen.getByRole('button', { name: '+ Add station' }))
+    await user.click(screen.getByRole('button', { name: '+ Add train station' }))
     // then a train + a stop
     await user.click(screen.getByRole('button', { name: 'Trains & routes' }))
     await user.click(screen.getByRole('button', { name: '+ Add train' }))
