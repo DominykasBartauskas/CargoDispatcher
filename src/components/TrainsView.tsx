@@ -1,7 +1,7 @@
-import { newStop, newTrain } from '../lib/model'
+import { newTrain } from '../lib/model'
 import { useDialogs } from '../lib/dialogs'
 import { useReorder } from '../lib/useReorder'
-import { RuleEditor } from './RuleEditor'
+import { RouteEditor } from './RouteEditor'
 import type { CarType, Train, Update, World } from '../lib/types'
 
 const CAR_CLASS: Record<CarType, string> = { E: 'engine', F: 'freight', L: 'fluidcar' }
@@ -159,7 +159,12 @@ export function TrainsView({ world, collapsed, update }: Props) {
                   Car position N docks at platform N. Freight cars use regular platforms, fluid cars use
                   fluid platforms, and an engine at position N blocks that platform for this train.
                 </div>
-                <RouteBlock train={tr} world={world} update={update} withTrain={withTrain} />
+                <RouteEditor
+                  stops={tr.stops || []}
+                  stations={world.stations}
+                  withStops={(fn) => withTrain(tr.id, (t) => fn(t.stops))}
+                  emptyHint="Add train stations first, then define this train's route here."
+                />
               </>
             )}
           </div>
@@ -169,103 +174,3 @@ export function TrainsView({ world, collapsed, update }: Props) {
   )
 }
 
-function RouteBlock({
-  train,
-  world,
-  update,
-  withTrain,
-}: {
-  train: Train
-  world: World
-  update: Update
-  withTrain: (id: string, fn: (t: Train, w: World) => void) => void
-}) {
-  const stops = train.stops || []
-
-  if (!world.stations.length)
-    return (
-      <div className="routeblock">
-        <span className="label">Route</span>
-        <div className="hint">Add stations first, then define this train's route here.</div>
-      </div>
-    )
-
-  return (
-    <div className="routeblock">
-      <div className="routehead">
-        <span className="label">
-          Route · loop of {stops.length} stop{stops.length === 1 ? '' : 's'}
-        </span>
-        <span className="spacer" />
-        <button
-          className="btn small primary"
-          onClick={() =>
-            withTrain(train.id, (t, w) => t.stops.push(newStop(w.stations[0] ? w.stations[0].id : null)))
-          }
-        >
-          + Add stop
-        </button>
-      </div>
-
-      {stops.length === 0 && <div className="empty" style={{ padding: '8px 0' }}>No stops yet.</div>}
-
-      {stops.map((stop, si) => (
-        <div className="stop" key={si}>
-          <div className="stoprow">
-            <span className="stopnum">{si + 1}.</span>
-            <select
-              value={stop.stationId ?? ''}
-              onChange={(e) => withTrain(train.id, (t) => (t.stops[si].stationId = e.target.value))}
-            >
-              {world.stations.map((st) => (
-                <option key={st.id} value={st.id}>
-                  {st.name}
-                </option>
-              ))}
-            </select>
-            <span className="spacer" style={{ flex: 1 }} />
-            <button
-              className="btn small"
-              disabled={si === 0}
-              onClick={() =>
-                update((s) => {
-                  const t = s.worlds[s.active].trains.find((x) => x.id === train.id)
-                  if (t && si - 1 >= 0) [t.stops[si], t.stops[si - 1]] = [t.stops[si - 1], t.stops[si]]
-                })
-              }
-            >
-              ↑
-            </button>
-            <button
-              className="btn small"
-              disabled={si === stops.length - 1}
-              onClick={() =>
-                update((s) => {
-                  const t = s.worlds[s.active].trains.find((x) => x.id === train.id)
-                  if (t && si + 1 < t.stops.length)
-                    [t.stops[si], t.stops[si + 1]] = [t.stops[si + 1], t.stops[si]]
-                })
-              }
-            >
-              ↓
-            </button>
-            <button
-              className="btn small ghost"
-              onClick={() => withTrain(train.id, (t) => t.stops.splice(si, 1))}
-            >
-              ✕
-            </button>
-          </div>
-          <div className="rules">
-            <span className="rlabel load">Load</span>
-            <RuleEditor train={train} stopIdx={si} kind="load" update={update} />
-            <span className="rlabel unload">Unload</span>
-            <RuleEditor train={train} stopIdx={si} kind="unload" update={update} />
-          </div>
-        </div>
-      ))}
-
-      {stops.length > 1 && <div className="looparrow">↺ returns to stop 1</div>}
-    </div>
-  )
-}

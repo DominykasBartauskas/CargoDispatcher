@@ -21,7 +21,7 @@ describe('App shell', () => {
   it('switches sections', async () => {
     const user = userEvent.setup()
     renderApp()
-    await user.click(screen.getByRole('button', { name: 'Stations' }))
+    await user.click(screen.getByRole('button', { name: 'Train Stations' }))
     expect(screen.getByText(/No stations yet/i)).toBeInTheDocument()
   })
 })
@@ -61,11 +61,35 @@ describe('stations & platforms', () => {
   it('adds a station and toggles a platform to unload', async () => {
     const user = userEvent.setup()
     renderApp()
-    await user.click(screen.getByRole('button', { name: 'Stations' }))
+    await user.click(screen.getByRole('button', { name: 'Train Stations' }))
     await user.click(screen.getByRole('button', { name: '+ Add station' }))
     expect(screen.getByDisplayValue('Station 1')).toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: 'Unload' }))
     expect(screen.getByText(/receives solids that docked trains drop here/i)).toBeInTheDocument()
+  })
+})
+
+describe('trucks & truck stations', () => {
+  it('adds a truck and switches it to a fluid truck', async () => {
+    const user = userEvent.setup()
+    renderApp()
+    await user.click(screen.getByRole('button', { name: 'Trucks & routes' }))
+    await user.click(screen.getByRole('button', { name: '+ Add truck' }))
+    expect(screen.getByDisplayValue('Truck 1')).toBeInTheDocument()
+    expect(screen.getByText(/carries solid items/i)).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Fluid Truck' }))
+    expect(screen.getByText(/carries one fluid/i)).toBeInTheDocument()
+  })
+
+  it('adds a truck station and toggles it to a fluid unload dock', async () => {
+    const user = userEvent.setup()
+    renderApp()
+    await user.click(screen.getByRole('button', { name: 'Truck Stations' }))
+    await user.click(screen.getByRole('button', { name: '+ Add truck station' }))
+    expect(screen.getByDisplayValue('Truck Station 1')).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Fluid' }))
+    await user.click(screen.getByRole('button', { name: 'Unload' }))
+    expect(screen.getByText(/receives a fluid that docked trucks drop here/i)).toBeInTheDocument()
   })
 })
 
@@ -74,7 +98,7 @@ describe('routes & rules', () => {
     const user = userEvent.setup()
     const { container } = renderApp()
     // need a station first
-    await user.click(screen.getByRole('button', { name: 'Stations' }))
+    await user.click(screen.getByRole('button', { name: 'Train Stations' }))
     await user.click(screen.getByRole('button', { name: '+ Add station' }))
     // then a train + a stop
     await user.click(screen.getByRole('button', { name: 'Trains & routes' }))

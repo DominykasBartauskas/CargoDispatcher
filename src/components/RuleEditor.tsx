@@ -1,29 +1,22 @@
 import { ItemSelect } from './ItemSelect'
-import type { RuleMode, Train, Update } from '../lib/types'
+import type { Rule } from '../lib/types'
 
 interface Props {
-  train: Train
-  stopIdx: number
+  rule: Rule
   kind: 'load' | 'unload'
-  update: Update
+  /** Mutate this rule in place; the caller re-renders. */
+  withRule: (fn: (r: Rule) => void) => void
+  /** Which catalog slice the "+ add item" picker offers (default: all). */
+  itemKind?: 'all' | 'solid' | 'fluid'
 }
 
-/** Load/unload rule editor shown inside each route stop. */
-export function RuleEditor({ train, stopIdx, kind, update }: Props) {
-  const rule = train.stops[stopIdx][kind]
-
-  const withRule = (fn: (r: { mode: RuleMode; items: string[] }) => void) =>
-    update((s) => {
-      const w = s.worlds[s.active]
-      const t = w.trains.find((t) => t.id === train.id)
-      if (t) fn(t.stops[stopIdx][kind])
-    })
-
+/** Load/unload rule editor shown inside each route stop (trains and trucks). */
+export function RuleEditor({ rule, kind, withRule, itemKind = 'all' }: Props) {
   return (
     <div className="rulewrap">
       <select
         value={rule.mode}
-        onChange={(e) => withRule((r) => (r.mode = e.target.value as RuleMode))}
+        onChange={(e) => withRule((r) => (r.mode = e.target.value as Rule['mode']))}
       >
         <option value="any">Anything</option>
         <option value="none">None</option>
@@ -41,6 +34,7 @@ export function RuleEditor({ train, stopIdx, kind, update }: Props) {
           ))}
           <ItemSelect
             value=""
+            kind={itemKind}
             placeholder="+ add item"
             onChange={(v) => {
               if (!v) return

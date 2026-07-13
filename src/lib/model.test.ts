@@ -5,6 +5,8 @@ import {
   newStation,
   newStop,
   newTrain,
+  newTruck,
+  newTruckStation,
   normalizeState,
 } from './model'
 import type { AppState, Platform, World } from './types'
@@ -31,6 +33,20 @@ describe('factories', () => {
       load: { mode: 'any', items: [] },
       unload: { mode: 'any', items: [] },
     })
+  })
+  it('newTruck defaults to a solid truck with no route', () => {
+    const t = newTruck(2)
+    expect(t.name).toBe('Truck 2')
+    expect(t.type).toBe('truck')
+    expect(t.stops).toEqual([])
+    expect(t.id).toBeTruthy()
+  })
+  it('newTruckStation defaults to a regular load dock', () => {
+    const st = newTruckStation(1)
+    expect(st.name).toBe('Truck Station 1')
+    expect(st.type).toBe('regular')
+    expect(st.mode).toBe('load')
+    expect(st.items).toEqual([{ item: '', rate: 60 }])
   })
 })
 
@@ -80,6 +96,28 @@ describe('migrateWorld', () => {
     migrateWorld(w)
     expect(w.trains[0].cars).toEqual(['E', 'F', 'F', 'L'])
     expect(w.trains[0].stops).toEqual([])
+  })
+  it('backfills empty truck arrays on a legacy train-only world', () => {
+    const w = { id: 'w', name: 'W', trains: [], stations: [] } as unknown as World
+    migrateWorld(w)
+    expect(w.trucks).toEqual([])
+    expect(w.truckStations).toEqual([])
+  })
+  it('sanitizes an unknown truck type and truck-station shape', () => {
+    const w = {
+      id: 'w',
+      name: 'W',
+      trains: [],
+      stations: [],
+      trucks: [{ id: 'k', name: 'K', type: 'bogus', stops: undefined }],
+      truckStations: [{ id: 's', name: 'S', type: undefined, mode: undefined, items: undefined }],
+    } as unknown as World
+    migrateWorld(w)
+    expect(w.trucks[0].type).toBe('truck')
+    expect(w.trucks[0].stops).toEqual([])
+    expect(w.truckStations[0].type).toBe('regular')
+    expect(w.truckStations[0].mode).toBe('load')
+    expect(w.truckStations[0].items).toEqual([])
   })
 })
 

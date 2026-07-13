@@ -3,7 +3,9 @@ import type { Section, Update } from '../lib/types'
 
 const SECTIONS: [Section, string][] = [
   ['trains', 'Trains & routes'],
-  ['stations', 'Stations'],
+  ['stations', 'Train Stations'],
+  ['trucks', 'Trucks & routes'],
+  ['truckStations', 'Truck Stations'],
   ['analysis', 'Analysis'],
 ]
 

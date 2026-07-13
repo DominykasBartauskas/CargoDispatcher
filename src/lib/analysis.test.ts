@@ -7,7 +7,20 @@ import {
   ruleAllows,
   ruleText,
 } from './analysis'
-import type { CarType, Platform, Rule, Station, Stop, Train, World } from './types'
+import type {
+  CarType,
+  Platform,
+  PlatItem,
+  Rule,
+  Station,
+  Stop,
+  Train,
+  Truck,
+  TruckStation,
+  TruckStationType,
+  TruckType,
+  World,
+} from './types'
 
 /* ---- typed builders ---- */
 const rule = (mode: Rule['mode'] = 'any', items: string[] = []): Rule => ({ mode, items })
@@ -19,7 +32,32 @@ const plat = (type: Platform['type'], mode: Platform['mode'], items: Platform['i
 })
 const train = (id: string, name: string, cars: CarType[], stops: Stop[]): Train => ({ id, name, cars, stops })
 const station = (id: string, name: string, platforms: Platform[]): Station => ({ id, name, platforms })
-const world = (stations: Station[], trains: Train[]): World => ({ id: 'w', name: 'W', stations, trains })
+const world = (stations: Station[], trains: Train[]): World => ({
+  id: 'w',
+  name: 'W',
+  stations,
+  trains,
+  trucks: [],
+  truckStations: [],
+})
+
+/* ---- truck builders ---- */
+const tStation = (
+  id: string,
+  name: string,
+  type: TruckStationType,
+  mode: TruckStation['mode'],
+  items: PlatItem[] = [],
+): TruckStation => ({ id, name, type, mode, items })
+const truck = (id: string, name: string, type: TruckType, stops: Stop[]): Truck => ({ id, name, type, stops })
+const truckWorld = (truckStations: TruckStation[], trucks: Truck[]): World => ({
+  id: 'w',
+  name: 'W',
+  stations: [],
+  trains: [],
+  trucks,
+  truckStations,
+})
 
 describe('helpers', () => {
   it('ruleAllows', () => {
@@ -182,5 +220,130 @@ describe('analyze — fluids', () => {
     )
     const a = analyze(w)
     expect(a.pickups).toHaveLength(0)
+  })
+})
+
+describe('analyze — trucks', () => {
+  it('routes a solid truck through a clean load → unload loop', () => {
+    const w = truckWorld(
+      [
+        tStation('a', 'A', 'regular', 'load', [{ item: 'Iron Ore', rate: 60 }]),
+        tStation('b', 'B', 'regular', 'unload'),
+      ],
+      [truck('t', 'T', 'truck', [stop('a'), stop('b')])],
+    )
+    const a = analyze(w)
+    expect(a.errors).toEqual([])
+    expect(a.warnings).toEqual([])
+    expect(a.truckPickups).toHaveLength(1)
+    expect(a.truckPickups[0]).toMatchObject({ item: 'Iron Ore', rate: 60, stopIdx: 0 })
+    expect(a.truckPickups[0].delivered).toMatchObject({ stopIdx: 1 })
+    expect(a.truckDeposits).toHaveLength(1)
+    expect(a.truckDeposits[0]).toMatchObject({ item: 'Iron Ore', stopIdx: 1 })
+  })
+
+  it('flags structural problems (no route, single stop)', () => {
+    const noRoute = analyze(truckWorld([], [truck('t', 'T', 'truck', [])]))
+    expect(noRoute.warnings).toContain('<b>T</b> has no route defined.')
+    const oneStop = analyze(
+      truckWorld([tStation('a', 'A', 'regular', 'load')], [truck('t', 'T', 'truck', [stop('a')])]),
+    )
+    expect(oneStop.warnings).toContain(
+      '<b>T</b> only visits one truck station. A loop needs at least two stops to move anything.',
+    )
+  })
+
+  it('reports two trucks contending for the same feed', () => {
+    const w = truckWorld(
+      [
+        tStation('a', 'A', 'regular', 'load', [{ item: 'Iron Ore', rate: 60 }]),
+        tStation('b', 'B', 'regular', 'unload'),
+      ],
+      [
+        truck('t1', 'T1', 'truck', [stop('a'), stop('b')]),
+        truck('t2', 'T2', 'truck', [stop('a'), stop('b')]),
+      ],
+    )
+    const a = analyze(w)
+    expect(a.errors.some((e) => e.includes('<b>T1</b> and <b>T2</b> both pick up <b>Iron Ore</b> at A'))).toBe(true)
+  })
+
+  it('routes a fluid via a fluid truck and fluid stations', () => {
+    const w = truckWorld(
+      [
+        tStation('a', 'A', 'fluid', 'load', [{ item: 'Water', rate: 300 }]),
+        tStation('b', 'B', 'fluid', 'unload'),
+      ],
+      [truck('t', 'T', 'fluid-truck', [stop('a'), stop('b')])],
+    )
+    const a = analyze(w)
+    expect(a.errors).toEqual([])
+    expect(a.truckPickups).toHaveLength(1)
+    expect(a.truckPickups[0]).toMatchObject({ item: 'Water' })
+    expect(a.truckDeposits).toHaveLength(1)
+  })
+
+  it('a solid truck cannot dock a fluid station (and vice versa)', () => {
+    const solidAtFluid = analyze(
+      truckWorld(
+        [
+          tStation('a', 'A', 'fluid', 'load', [{ item: 'Water', rate: 300 }]),
+          tStation('b', 'B', 'regular', 'unload'),
+        ],
+        [truck('t', 'T', 'truck', [stop('a'), stop('b')])],
+      ),
+    )
+    expect(solidAtFluid.truckPickups).toHaveLength(0)
+    expect(
+      solidAtFluid.warnings.some((warn) =>
+        warn.includes('a solid vehicle can only use regular truck stations'),
+      ),
+    ).toBe(true)
+
+    const fluidAtRegular = analyze(
+      truckWorld(
+        [
+          tStation('a', 'A', 'regular', 'load', [{ item: 'Iron Ore', rate: 60 }]),
+          tStation('b', 'B', 'fluid', 'unload'),
+        ],
+        [truck('t', 'T', 'fluid-truck', [stop('a'), stop('b')])],
+      ),
+    )
+    expect(fluidAtRegular.truckPickups).toHaveLength(0)
+    expect(
+      fluidAtRegular.warnings.some((warn) => warn.includes('a fluid truck can only use fluid truck stations')),
+    ).toBe(true)
+  })
+
+  it('warns when a truck loads something it never unloads', () => {
+    const w = truckWorld(
+      [
+        tStation('a', 'A', 'regular', 'load', [{ item: 'Iron Ore', rate: 60 }]),
+        tStation('b', 'B', 'regular', 'load', [{ item: 'Copper Ore', rate: 60 }]),
+      ],
+      [truck('t', 'T', 'truck', [stop('a'), stop('b')])],
+    )
+    const a = analyze(w)
+    expect(
+      a.warnings.some((warn) =>
+        warn.includes('<b>T</b> loads <b>Iron Ore</b> at A but never unloads it anywhere on its route'),
+      ),
+    ).toBe(true)
+  })
+
+  it('errors on a load-list item the station cannot provide', () => {
+    const w = truckWorld(
+      [
+        tStation('a', 'A', 'regular', 'load', [{ item: 'Iron Ore', rate: 60 }]),
+        tStation('b', 'B', 'regular', 'unload'),
+      ],
+      [truck('t', 'T', 'truck', [stop('a', rule('list', ['Copper Ore'])), stop('b')])],
+    )
+    const a = analyze(w)
+    expect(
+      a.errors.some((e) =>
+        e.includes('<b>T</b> is set to load <b>Copper Ore</b> at A, but can\'t: A has no load dock providing it.'),
+      ),
+    ).toBe(true)
   })
 })

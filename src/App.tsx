@@ -7,6 +7,8 @@ import { WorldBar } from './components/WorldBar'
 import { SectionNav } from './components/SectionNav'
 import { TrainsView } from './components/TrainsView'
 import { StationsView } from './components/StationsView'
+import { TrucksView } from './components/TrucksView'
+import { TruckStationsView } from './components/TruckStationsView'
 import { AnalysisView } from './components/AnalysisView'
 import { ExportDialog } from './components/ExportDialog'
 import { ImportDialog } from './components/ImportDialog'
@@ -75,6 +77,10 @@ function App() {
           <TrainsView world={world} collapsed={state.collapsed} update={update} />
         ) : state.section === 'stations' ? (
           <StationsView world={world} collapsed={state.collapsed} update={update} />
+        ) : state.section === 'trucks' ? (
+          <TrucksView world={world} collapsed={state.collapsed} update={update} />
+        ) : state.section === 'truckStations' ? (
+          <TruckStationsView world={world} collapsed={state.collapsed} update={update} />
         ) : (
           <AnalysisView world={world} analysis={analysis} />
         )}

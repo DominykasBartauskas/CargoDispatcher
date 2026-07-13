@@ -3,7 +3,7 @@ import type { ReactNode } from 'react'
 import { isFluid } from '../lib/catalog'
 import { fmt, ruleAllows, ruleText } from '../lib/analysis'
 import type { Analysis } from '../lib/analysis'
-import type { Platform, Station, World } from '../lib/types'
+import type { Platform, Station, Truck, TruckStation, World } from '../lib/types'
 
 /** Render a list interleaved with <br/>, matching the legacy join('<br>'). */
 function listBr<T>(items: T[], render: (item: T) => ReactNode): ReactNode {
@@ -60,7 +60,198 @@ export function AnalysisView({ world, analysis: a }: { world: World; analysis: A
       {world.trains.map((tr) => (
         <TrainManifest key={tr.id} train={tr} world={world} a={a} />
       ))}
+
+      <h2 className="sec">Truck stations · computed throughput</h2>
+      {!world.truckStations.length && <div className="empty">No truck stations defined.</div>}
+      {world.truckStations.map((st) => (
+        <TruckStationBoard key={st.id} st={st} a={a} />
+      ))}
+
+      <h2 className="sec">Truck manifests · what actually happens each loop</h2>
+      {!world.trucks.length && <div className="empty">No trucks defined.</div>}
+      {world.trucks.map((tk) => (
+        <TruckManifest key={tk.id} truck={tk} world={world} a={a} />
+      ))}
     </>
+  )
+}
+
+function TruckStationBoard({ st, a }: { st: TruckStation; a: Analysis }) {
+  const typeLabel = st.type === 'fluid' ? 'Fluid ' : ''
+
+  const load = (() => {
+    const named = (st.items || []).filter((pi) => pi.item).slice(0, st.type === 'fluid' ? 1 : Infinity)
+    return named.map((pi) => ({
+      pi,
+      takers: [
+        ...new Set(
+          a.truckPickups
+            .filter((pk) => pk.station === st && pk.item.toLowerCase() === pi.item.toLowerCase())
+            .map((pk) => pk.truck.name),
+        ),
+      ],
+    }))
+  })()
+
+  const unload = (() => {
+    const byItem = new Map<string, { item: string; rate: number; trucks: Set<string> }>()
+    a.truckDeposits
+      .filter((d) => d.station === st)
+      .forEach((d) => {
+        const k = d.item.toLowerCase()
+        const cur = byItem.get(k) || { item: d.item, rate: 0, trucks: new Set<string>() }
+        cur.rate += d.rate
+        cur.trucks.add(d.truck.name)
+        byItem.set(k, cur)
+      })
+    return [...byItem.values()]
+  })()
+
+  return (
+    <div className="board">
+      <h3>{st.name}</h3>
+      <table className="flow">
+        <tbody>
+          <tr>
+            <th style={{ width: 110 }}>Mode</th>
+            <th>Contents</th>
+            <th style={{ width: 220 }}>Trucks</th>
+          </tr>
+          {st.mode === 'load' ? (
+            <tr>
+              <td>
+                <span className="modechip load">{typeLabel}Load</span>
+              </td>
+              <td>
+                {load.length ? (
+                  listBr(load, (r) => (
+                    <>
+                      {r.pi.item} <span className="rate">{fmt(r.pi.rate)}/min</span>
+                    </>
+                  ))
+                ) : (
+                  <span className="dimtxt">no items set</span>
+                )}
+              </td>
+              <td>
+                {load.length ? (
+                  listBr(load, (r) =>
+                    r.takers.length ? r.takers.join(', ') : <span className="dimtxt">uncollected</span>,
+                  )
+                ) : (
+                  <span className="dimtxt">—</span>
+                )}
+              </td>
+            </tr>
+          ) : (
+            <tr>
+              <td>
+                <span className="modechip unload">{typeLabel}Unload</span>
+              </td>
+              <td>
+                {unload.length ? (
+                  listBr(unload, (r) => (
+                    <>
+                      {r.item} <span className="rate">{fmt(r.rate)}/min</span>
+                    </>
+                  ))
+                ) : (
+                  <span className="dimtxt">empty</span>
+                )}
+              </td>
+              <td>
+                {unload.length ? (
+                  [...new Set(unload.flatMap((r) => [...r.trucks]))].join(', ')
+                ) : (
+                  <span className="dimtxt">—</span>
+                )}
+              </td>
+            </tr>
+          )}
+        </tbody>
+      </table>
+    </div>
+  )
+}
+
+function TruckManifest({ truck, world, a }: { truck: Truck; world: World; a: Analysis }) {
+  const stops = truck.stops || []
+  const stationById = (id: string | null) =>
+    id ? world.truckStations.find((s) => s.id === id) : undefined
+
+  const skipReason = (t: number, item: string): string => {
+    const stop = stops[t]
+    const st = stationById(stop.stationId)
+    if (!st) return 'missing station'
+    if (st.mode !== 'unload') return `${st.name} is set to load`
+    if (isFluid(item) !== (st.type === 'fluid')) return `${st.name} is the wrong type`
+    if (!ruleAllows(stop.unload, item)) return 'unload rule filters it'
+    return 'skipped'
+  }
+
+  const journeys = a.truckPickups.filter((pk) => pk.truck === truck)
+
+  return (
+    <div className="board">
+      <h3>{truck.name}</h3>
+      <div className="manif">
+        {!stops.length && <span className="dimtxt">No route.</span>}
+        {stops.map((stop, si) => {
+          const st = stationById(stop.stationId)
+          const loads = a.truckPickups.filter((pk) => pk.truck === truck && pk.stopIdx === si)
+          const drops = a.truckDeposits.filter((d) => d.truck === truck && d.stopIdx === si)
+          return (
+            <div className="mstop" key={si}>
+              <span className="mono dimtxt">{si + 1}.</span> <b>{st ? st.name : <i>missing station</i>}</b>{' '}
+              <span className="dimtxt">
+                · load: {ruleText(stop.load)} · unload: {ruleText(stop.unload)}
+              </span>
+              <br />
+              {drops.length > 0 && (
+                <>
+                  <span className="ul">⬇ unloads {drops.map((d) => `${d.item} ${fmt(d.rate)}/min`).join(', ')}</span>
+                  <br />
+                </>
+              )}
+              {loads.length > 0 && (
+                <span className="ld">⬆ loads {loads.map((p) => `${p.item} ${fmt(p.rate)}/min`).join(', ')}</span>
+              )}
+              {!loads.length && !drops.length && <span className="dimtxt">no cargo exchanged</span>}
+            </div>
+          )
+        })}
+
+        {journeys.length > 0 && (
+          <div className="journeys">
+            <span className="label" style={{ fontSize: 10 }}>
+              Cargo journeys
+            </span>
+            {journeys.map((pk, idx) => (
+              <div className="jrow" key={idx}>
+                {pk.item} {fmt(pk.rate)}/min · <span className="ld">loads at {pk.station.name}</span>{' '}
+                {pk.carryPath.map((t, k) => {
+                  const s2 = stationById(stops[t].stationId)
+                  return (
+                    <span className="dimtxt" key={k}>
+                      → skips {s2 ? s2.name : '?'} ({skipReason(t, pk.item)}){' '}
+                    </span>
+                  )
+                })}
+                {pk.delivered ? (
+                  <>
+                    → <span className="ul">unloads at {pk.delivered.station.name}</span>
+                  </>
+                ) : (
+                  <>
+                    → <span style={{ color: 'var(--color-warn)' }}>never unloaded, accumulates</span>
+                  </>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
   )
 }
 

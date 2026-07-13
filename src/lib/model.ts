@@ -1,11 +1,22 @@
 import { isFluid } from './catalog'
-import type { AppState, CarType, Platform, Station, Stop, Train, World } from './types'
+import type {
+  AppState,
+  CarType,
+  Platform,
+  Station,
+  Stop,
+  Train,
+  Truck,
+  TruckStation,
+  TruckType,
+  World,
+} from './types'
 
 export const uid = (): string =>
   crypto.randomUUID ? crypto.randomUUID() : 'id-' + Math.random().toString(36).slice(2) + Date.now()
 
 export function newWorld(name: string): World {
-  return { id: uid(), name, trains: [], stations: [] }
+  return { id: uid(), name, trains: [], stations: [], trucks: [], truckStations: [] }
 }
 export function newTrain(n: number): Train {
   return { id: uid(), name: 'Train ' + n, cars: ['E', 'F', 'F'], stops: [] }
@@ -16,9 +27,17 @@ export function newStation(n: number): Station {
 export function newPlatform(): Platform {
   return { type: 'regular', mode: 'load', items: [{ item: '', rate: 60 }] }
 }
+export function newTruck(n: number): Truck {
+  return { id: uid(), name: 'Truck ' + n, type: 'truck', stops: [] }
+}
+export function newTruckStation(n: number): TruckStation {
+  return { id: uid(), name: 'Truck Station ' + n, type: 'regular', mode: 'load', items: [{ item: '', rate: 60 }] }
+}
 export function newStop(stationId: string | null): Stop {
   return { stationId, load: { mode: 'any', items: [] }, unload: { mode: 'any', items: [] } }
 }
+
+const TRUCK_TYPES: TruckType[] = ['truck', 'fluid-truck', 'tractor', 'explorer']
 
 /* Older saves: single {item, rate} per platform, and "empty" was a mode
    rather than a type. */
@@ -53,6 +72,19 @@ export function migrateWorld(w: World): World {
       if (!p.mode || (p.mode as string) === 'empty') p.mode = 'load'
     }),
   )
+  /* Trucks & truck stations were added after the initial train-only model, so
+     older saves have neither array. Backfill and sanitize them. */
+  w.trucks = (w.trucks || []).map((t) => ({
+    ...t,
+    type: TRUCK_TYPES.includes(t.type) ? t.type : 'truck',
+    stops: t.stops || [],
+  }))
+  w.truckStations = (w.truckStations || []).map((st) => ({
+    ...st,
+    type: st.type === 'fluid' ? 'fluid' : 'regular',
+    mode: st.mode === 'unload' ? 'unload' : 'load',
+    items: Array.isArray(st.items) ? st.items : [],
+  }))
   return w
 }
 

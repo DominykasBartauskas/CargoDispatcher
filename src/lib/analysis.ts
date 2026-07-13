@@ -1,5 +1,5 @@
 import { isFluid } from './catalog'
-import type { Platform, PlatItem, Rule, Station, World } from './types'
+import type { Platform, PlatItem, Rule, Station, Truck, TruckStation, World } from './types'
 
 /** Escapes user-supplied text for the HTML fragments the analysis emits. */
 export const esc = (s: unknown): string =>
@@ -59,11 +59,32 @@ export interface Deposit {
   fromStation: Station
 }
 
+export interface TruckPickup {
+  truck: Truck
+  stopIdx: number
+  station: TruckStation
+  item: string
+  rate: number
+  delivered: { stopIdx: number; station: TruckStation } | null
+  carryPath: number[]
+}
+
+export interface TruckDeposit {
+  truck: Truck
+  stopIdx: number
+  station: TruckStation
+  item: string
+  rate: number
+  fromStation: TruckStation
+}
+
 export interface Analysis {
   errors: string[]
   warnings: string[]
   pickups: Pickup[]
   deposits: Deposit[]
+  truckPickups: TruckPickup[]
+  truckDeposits: TruckDeposit[]
 }
 
 export function analyze(w: World): Analysis {
@@ -342,5 +363,256 @@ export function analyze(w: World): Analysis {
     })
   })
 
-  return { errors, warnings, pickups, deposits }
+  /* trucks are an independent network; run their pass and merge the issues
+     (trains first, so worlds with no trucks are unaffected) */
+  const t = analyzeTrucks(w)
+  errors.push(...t.errors)
+  warnings.push(...t.warnings)
+
+  return {
+    errors,
+    warnings,
+    pickups,
+    deposits,
+    truckPickups: t.truckPickups,
+    truckDeposits: t.truckDeposits,
+  }
+}
+
+/**
+ * Road-vehicle pass: the truck analogue of the train pass above, minus car
+ * positions (a truck has one cargo hold). A truck station is a single dock, so
+ * `loadableFeeds`/`canUnloadHere` are reused directly (a TruckStation is
+ * structurally a Platform whose type is 'regular' | 'fluid'). Cargo is only
+ * exchanged when the vehicle's phase matches the dock's: a fluid truck uses
+ * fluid stations, solid vehicles use regular stations.
+ */
+export function analyzeTrucks(w: World): {
+  errors: string[]
+  warnings: string[]
+  truckPickups: TruckPickup[]
+  truckDeposits: TruckDeposit[]
+} {
+  const errors: string[] = []
+  const warnings: string[] = []
+  const truckPickups: TruckPickup[] = []
+  const truckDeposits: TruckDeposit[] = []
+  const stById: Record<string, TruckStation> = {}
+  ;(w.truckStations || []).forEach((s) => (stById[s.id] = s))
+
+  const isFluidTruck = (tk: Truck): boolean => tk.type === 'fluid-truck'
+
+  /* structural sanity */
+  ;(w.trucks || []).forEach((tk) => {
+    const fluidV = isFluidTruck(tk)
+    if (!(tk.stops || []).length) warnings.push(`<b>${esc(tk.name)}</b> has no route defined.`)
+    else if (tk.stops.length === 1)
+      warnings.push(
+        `<b>${esc(tk.name)}</b> only visits one truck station. A loop needs at least two stops to move anything.`,
+      )
+    ;(tk.stops || []).forEach((stop, si) => {
+      const st = stop.stationId ? stById[stop.stationId] : undefined
+      if (!st) {
+        warnings.push(
+          `<b>${esc(tk.name)}</b> stop ${si + 1} points at a deleted truck station. Remove or reassign it.`,
+        )
+        return
+      }
+      if (fluidV !== (st.type === 'fluid'))
+        warnings.push(
+          `<b>${esc(tk.name)}</b> stop ${si + 1} docks <b>${esc(st.name)}</b>, but ${
+            fluidV
+              ? 'a fluid truck can only use fluid truck stations'
+              : 'a solid vehicle can only use regular truck stations'
+          }, so it exchanges no cargo there.`,
+        )
+    })
+  })
+
+  /* truck-station load config */
+  ;(w.truckStations || []).forEach((st) => {
+    if (st.mode !== 'load') return
+    if (st.type === 'fluid') {
+      const pi = (st.items || [])[0]
+      if (!pi || !pi.item) warnings.push(`<b>${esc(st.name)}</b> is a fluid truck station with no fluid assigned.`)
+      else if (!isFluid(pi.item))
+        warnings.push(
+          `<b>${esc(st.name)}</b> is a fluid truck station but is set to load ${esc(pi.item)}, which is not a fluid. It will load nothing.`,
+        )
+      else if (!(+pi.rate > 0))
+        warnings.push(`<b>${esc(st.name)}</b> loads ${esc(pi.item)} at 0/min. Set a rate.`)
+    } else {
+      const named = (st.items || []).filter((x) => x.item)
+      if (!named.length) warnings.push(`<b>${esc(st.name)}</b> is set to load but has no items assigned.`)
+      named.forEach((x) => {
+        if (isFluid(x.item))
+          warnings.push(
+            `<b>${esc(st.name)}</b> is a regular truck station but is set to load ${esc(x.item)}, which is a fluid. Use a fluid truck station. It will load nothing as configured.`,
+          )
+        else if (!(+x.rate > 0)) warnings.push(`<b>${esc(st.name)}</b> loads ${esc(x.item)} at 0/min. Set a rate.`)
+      })
+    }
+  })
+
+  /* pickups: what each truck collects from the load docks it can use */
+  ;(w.trucks || []).forEach((tk) => {
+    const fluidV = isFluidTruck(tk)
+    ;(tk.stops || []).forEach((stop, si) => {
+      const st = stop.stationId ? stById[stop.stationId] : undefined
+      if (!st) return
+      if (fluidV !== (st.type === 'fluid')) return
+      loadableFeeds(st).forEach((pi) => {
+        if (ruleAllows(stop.load, pi.item))
+          truckPickups.push({
+            truck: tk,
+            stopIdx: si,
+            station: st,
+            item: pi.item.trim(),
+            rate: +pi.rate || 0,
+            delivered: null,
+            carryPath: [],
+          })
+      })
+    })
+  })
+
+  /* flows: each pickup rides until the first dock where it can unload */
+  truckPickups.forEach((pk) => {
+    const stops = pk.truck.stops
+    const L = stops.length
+    for (let k = 1; k < L; k++) {
+      const t = (pk.stopIdx + k) % L
+      const st = stops[t].stationId ? stById[stops[t].stationId!] : undefined
+      if (!st) continue
+      if (canUnloadHere(st, pk.item) && ruleAllows(stops[t].unload, pk.item)) {
+        pk.delivered = { stopIdx: t, station: st }
+        truckDeposits.push({
+          truck: pk.truck,
+          stopIdx: t,
+          station: st,
+          item: pk.item,
+          rate: pk.rate,
+          fromStation: pk.station,
+        })
+        break
+      }
+      pk.carryPath.push(t)
+    }
+    if (!pk.delivered)
+      warnings.push(
+        `<b>${esc(pk.truck.name)}</b> loads <b>${esc(pk.item)}</b> at ${esc(pk.station.name)} but never unloads it anywhere on its route. It will fill up and stall loading.`,
+      )
+  })
+
+  /* ERROR: explicit load item the truck cannot actually collect */
+  ;(w.trucks || []).forEach((tk) => {
+    const fluidV = isFluidTruck(tk)
+    ;(tk.stops || []).forEach((stop, si) => {
+      if (stop.load.mode !== 'list') return
+      const st = stop.stationId ? stById[stop.stationId] : undefined
+      if (!st) return
+      ;(stop.load.items || []).forEach((item) => {
+        const got = truckPickups.some(
+          (pk) => pk.truck === tk && pk.stopIdx === si && pk.item.toLowerCase() === item.toLowerCase(),
+        )
+        if (got) return
+        let why: string
+        if (st.mode !== 'load') why = `${esc(st.name)} is set to unload, not load.`
+        else if (fluidV !== (st.type === 'fluid'))
+          why = fluidV
+            ? `${esc(st.name)} is a regular truck station and cannot be docked by a fluid truck.`
+            : `${esc(st.name)} is a fluid truck station, which only docks fluid trucks.`
+        else if (isFluid(item) !== (st.type === 'fluid'))
+          why =
+            st.type === 'fluid'
+              ? `${esc(item)} is not a fluid, so this fluid truck station can't load it.`
+              : `${esc(item)} is a fluid, so this regular truck station can't load it.`
+        else why = `${esc(st.name)} has no load dock providing it.`
+        errors.push(
+          `<b>${esc(tk.name)}</b> is set to load <b>${esc(item)}</b> at ${esc(st.name)}, but can't: ${why}`,
+        )
+      })
+    })
+  })
+
+  /* ERROR: two trucks contending for the same feed at the same station */
+  const byStation: Record<string, TruckPickup[]> = {}
+  truckPickups.forEach((pk) => {
+    const key = pk.station.id + '|' + pk.item.toLowerCase()
+    ;(byStation[key] = byStation[key] || []).push(pk)
+  })
+  Object.values(byStation).forEach((list) => {
+    const trucks = [...new Map(list.map((pk) => [pk.truck.id, pk.truck])).values()]
+    if (trucks.length < 2) return
+    const pk = list[0]
+    const names = trucks.map((t) => `<b>${esc(t.name)}</b>`).join(' and ')
+    errors.push(
+      `${names} both pick up <b>${esc(pk.item)}</b> at ${esc(pk.station.name)}. Each item feed should go to exactly one vehicle. Restrict their load rules or reroute all but one.`,
+    )
+  })
+
+  /* explicit unload item that never happens */
+  ;(w.trucks || []).forEach((tk) => {
+    ;(tk.stops || []).forEach((stop, si) => {
+      if (stop.unload.mode !== 'list') return
+      const st = stop.stationId ? stById[stop.stationId] : undefined
+      if (!st) return
+      ;(stop.unload.items || []).forEach((item) => {
+        const done = truckDeposits.some(
+          (d) => d.truck === tk && d.stopIdx === si && d.item.toLowerCase() === item.toLowerCase(),
+        )
+        if (done) return
+        const carrying = truckPickups.filter(
+          (pk) => pk.truck === tk && pk.item.toLowerCase() === item.toLowerCase(),
+        )
+        let why: string
+        if (!carrying.length) {
+          why = `the truck never loads ${esc(item)} anywhere on its route.`
+        } else {
+          const passes = carrying.filter((pk) => pk.carryPath.includes(si))
+          const early = carrying.filter(
+            (pk) => pk.delivered && !pk.carryPath.includes(si) && pk.delivered.stopIdx !== si,
+          )
+          if (passes.length) {
+            if (st.mode !== 'unload') why = `${esc(st.name)} is set to load, not unload.`
+            else if (isFluid(item) !== (st.type === 'fluid'))
+              why =
+                st.type === 'fluid'
+                  ? `${esc(st.name)} is a fluid truck station, which can't take ${esc(item)}.`
+                  : `${esc(st.name)} is a regular truck station; ${esc(item)} needs a fluid truck station.`
+            else why = `the stop's unload rule filters it out.`
+          } else if (early.length) {
+            const d = early[0].delivered!
+            why = `it is already unloaded at ${esc(d.station.name)} (stop ${d.stopIdx + 1}) before this stop.`
+          } else {
+            why = `no run carrying it reaches this stop.`
+          }
+        }
+        warnings.push(
+          `<b>${esc(tk.name)}</b> is set to unload <b>${esc(item)}</b> at ${esc(st.name)}, but never does: ${why}`,
+        )
+      })
+    })
+  })
+
+  /* orphaned truck stations */
+  ;(w.truckStations || []).forEach((st) => {
+    if (st.mode === 'load') {
+      loadableFeeds(st).forEach((pi) => {
+        const served = truckPickups.some(
+          (pk) => pk.station === st && pk.item.toLowerCase() === pi.item.toLowerCase(),
+        )
+        if (!served)
+          warnings.push(
+            `<b>${esc(st.name)}</b> loads ${esc(pi.item)} (${fmt(pi.rate)}/min) but no truck ever collects it.`,
+          )
+      })
+    } else {
+      const fed = truckDeposits.some((d) => d.station === st)
+      if (!fed)
+        warnings.push(`<b>${esc(st.name)}</b> is set to unload but no truck ever delivers anything to it.`)
+    }
+  })
+
+  return { errors, warnings, truckPickups, truckDeposits }
 }

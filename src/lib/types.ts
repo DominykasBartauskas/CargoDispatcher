@@ -5,7 +5,12 @@ export type CarType = 'E' | 'F' | 'L'
 export type PlatformType = 'regular' | 'fluid' | 'empty'
 export type PlatformMode = 'load' | 'unload'
 export type RuleMode = 'any' | 'none' | 'list'
-export type Section = 'trains' | 'stations' | 'analysis'
+export type Section = 'trains' | 'stations' | 'trucks' | 'truckStations' | 'analysis'
+
+/** Road vehicles. Only 'fluid-truck' carries fluids; the rest carry solids. */
+export type TruckType = 'truck' | 'fluid-truck' | 'tractor' | 'explorer'
+/** A truck station is a single dock; unlike train platforms it has no 'empty'. */
+export type TruckStationType = 'regular' | 'fluid'
 
 export interface PlatItem {
   item: string
@@ -42,11 +47,31 @@ export interface Station {
   platforms: Platform[]
 }
 
+/** A road vehicle: one cargo hold, no car consist, on a looped route. */
+export interface Truck {
+  id: string
+  name: string
+  type: TruckType
+  stops: Stop[]
+}
+
+/** A single road-vehicle dock. Regular docks handle a list of solids; fluid
+    docks (Satisfactory 1.2 Fluid Truck Station) handle one fluid. */
+export interface TruckStation {
+  id: string
+  name: string
+  type: TruckStationType
+  mode: PlatformMode
+  items: PlatItem[]
+}
+
 export interface World {
   id: string
   name: string
   trains: Train[]
   stations: Station[]
+  trucks: Truck[]
+  truckStations: TruckStation[]
 }
 
 export interface AppState {
