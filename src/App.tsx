@@ -59,9 +59,9 @@ function App() {
       <header>
         <div className="brand">
           <h1>
-            Rail <span className="dim">Dispatcher</span>
+            Cargo <span className="dim">Dispatcher</span>
           </h1>
-          <span className="sub">Satisfactory train network planner</span>
+          <span className="sub">Satisfactory logistics network planner</span>
         </div>
         <div className="hazard" />
       </header>

@@ -14,7 +14,7 @@ function renderApp() {
 describe('App shell', () => {
   it('renders the brand and an empty trains view', async () => {
     renderApp()
-    expect(screen.getByRole('heading', { name: /Rail/ })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: /Cargo/ })).toBeInTheDocument()
     expect(await screen.findByText(/No trains yet/i)).toBeInTheDocument()
   })
 

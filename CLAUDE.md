@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this is
 
-A single-page **Satisfactory train network planner** ("Rail Dispatcher"): you define worlds → trains (car consists + looped routes) → stations (platforms), and an analysis engine reports how cargo actually flows and what's misconfigured. It is a React + TypeScript + Vite rewrite of an original single-file prototype, which is preserved verbatim at `rail-dispatcher.legacy.html` and is the behavioral reference — consult it when changing domain logic.
+A single-page **Satisfactory logistics network planner** ("Cargo Dispatcher"): you define worlds → trains (car consists + looped routes) → stations (platforms), and an analysis engine reports how cargo actually flows and what's misconfigured. It is a React + TypeScript + Vite rewrite of an original single-file prototype.
 
 ## Commands
 

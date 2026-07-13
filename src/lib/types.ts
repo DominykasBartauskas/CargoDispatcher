@@ -1,4 +1,4 @@
-/** Domain model for the Rail Dispatcher, ported 1:1 from the legacy prototype. */
+/** Domain model for Cargo Dispatcher, ported 1:1 from the legacy prototype. */
 
 /** Car codes: Engine, Freight, fluid (L). */
 export type CarType = 'E' | 'F' | 'L'
