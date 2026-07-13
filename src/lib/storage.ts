@@ -75,7 +75,10 @@ export function backendNote(): { base: string; note: string } {
       note: '',
     }
   if (BACKEND === 'local')
-    return { base: 'Data is saved to this browser via localStorage.', note: '' }
+    return {
+      base: 'Data is saved to this browser. Export a world if you want to open it on another browser or machine.',
+      note: '',
+    }
   return {
     base: '',
     note: 'No persistent storage is available in this environment, so changes will not be saved. Export your world as JSON before leaving, or download the file and open it locally.',
