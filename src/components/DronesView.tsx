@@ -1,6 +1,7 @@
 import { newDrone } from '../lib/model'
 import { useReorder } from '../lib/useReorder'
 import { DeleteButton } from './DeleteButton'
+import { ReorderHandle } from './ReorderHandle'
 import type { Drone, Update, World } from '../lib/types'
 
 interface Props {
@@ -16,7 +17,9 @@ export function DronesView({ world, collapsed, update }: Props) {
       if (d) fn(d)
     })
 
-  const { handleProps, cardProps, overId, draggingId } = useReorder((fromId, toId) =>
+  const { handleProps, cardProps, overId, draggingId, moveProps } = useReorder(
+    world.drones.map((x) => x.id),
+    (fromId, toId) =>
     update((s) => {
       const arr = s.worlds[s.active].drones
       const from = arr.findIndex((x) => x.id === fromId)
@@ -46,7 +49,7 @@ export function DronesView({ world, collapsed, update }: Props) {
         }}
       >
         <span className="label">
-          Each drone links a home port to one destination and shuttles cargo both ways · drag ⠿ to reorder
+          Each drone links a home port to one destination and shuttles cargo both ways · drag ⠿ or ↑↓ to reorder
         </span>
         <span style={{ display: 'flex', gap: 6 }}>
           <button
@@ -84,9 +87,7 @@ export function DronesView({ world, collapsed, update }: Props) {
             {...cardProps(dr.id)}
           >
             <div className="cardhead">
-              <span className="draghandle" title="Drag to reorder" {...handleProps(dr.id)}>
-                ⠿
-              </span>
+              <ReorderHandle handle={handleProps(dr.id)} move={moveProps(dr.id)} />
               <button
                 className={`chev ${closed ? 'closed' : ''}`}
                 title={closed ? 'Expand' : 'Collapse'}

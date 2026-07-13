@@ -1,6 +1,7 @@
 import { newPlatform, newStation } from '../lib/model'
 import { useReorder } from '../lib/useReorder'
 import { DeleteButton } from './DeleteButton'
+import { ReorderHandle } from './ReorderHandle'
 import { ItemSelect } from './ItemSelect'
 import type { Platform, PlatformType, Station, Update, World } from '../lib/types'
 
@@ -23,7 +24,9 @@ export function StationsView({ world, collapsed, update }: Props) {
       if (p) fn(p)
     })
 
-  const { handleProps, cardProps, overId, draggingId } = useReorder((fromId, toId) =>
+  const { handleProps, cardProps, overId, draggingId, moveProps } = useReorder(
+    world.stations.map((x) => x.id),
+    (fromId, toId) =>
     update((s) => {
       const arr = s.worlds[s.active].stations
       const from = arr.findIndex((x) => x.id === fromId)
@@ -51,7 +54,7 @@ export function StationsView({ world, collapsed, update }: Props) {
         }}
       >
         <span className="label">
-          Platform N serves car position N of any docked train · drag ⠿ to reorder
+          Platform N serves car position N of any docked train · drag ⠿ or ↑↓ to reorder
         </span>
         <span style={{ display: 'flex', gap: 6 }}>
           <button
@@ -91,9 +94,7 @@ export function StationsView({ world, collapsed, update }: Props) {
             {...cardProps(st.id)}
           >
             <div className="cardhead">
-              <span className="draghandle" title="Drag to reorder" {...handleProps(st.id)}>
-                ⠿
-              </span>
+              <ReorderHandle handle={handleProps(st.id)} move={moveProps(st.id)} />
               <button
                 className={`chev ${closed ? 'closed' : ''}`}
                 title={closed ? 'Expand' : 'Collapse'}

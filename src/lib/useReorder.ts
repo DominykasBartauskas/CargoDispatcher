@@ -5,8 +5,15 @@ import type { DragEvent } from 'react'
  * HTML5 drag-and-drop reordering of `.card` elements, ported from the legacy
  * delegated dragstart/dragover/drop handlers. `onReorder` is called with the
  * dragged id and the drop-target id when they differ.
+ *
+ * Native HTML5 drag doesn't fire from touch input, so `moveProps(id)` also
+ * exposes up/down handlers (implemented on top of the same `onReorder`) that
+ * work on any device. Pass the ids in their current display order.
  */
-export function useReorder(onReorder: (fromId: string, toId: string) => void) {
+export function useReorder(
+  ids: string[],
+  onReorder: (fromId: string, toId: string) => void,
+) {
   const dragId = useRef<string | null>(null)
   const [overId, setOverId] = useState<string | null>(null)
   const [draggingId, setDraggingId] = useState<string | null>(null)
@@ -53,5 +60,26 @@ export function useReorder(onReorder: (fromId: string, toId: string) => void) {
     onDragEnd: clear,
   })
 
-  return { handleProps, cardProps, overId, draggingId }
+  /* Touch-friendly reordering: swap a card with its neighbour by reusing the
+     same id-based `onReorder`. */
+  const move = (id: string, dir: -1 | 1) => {
+    const i = ids.indexOf(id)
+    const j = i + dir
+    if (i < 0 || j < 0 || j >= ids.length) return
+    onReorder(id, ids[j])
+  }
+  const moveProps = (id: string) => {
+    const i = ids.indexOf(id)
+    return {
+      canUp: i > 0,
+      canDown: i > -1 && i < ids.length - 1,
+      up: () => move(id, -1),
+      down: () => move(id, 1),
+    }
+  }
+
+  return { handleProps, cardProps, overId, draggingId, moveProps }
 }
+
+export type MoveProps = ReturnType<ReturnType<typeof useReorder>['moveProps']>
+export type HandleProps = ReturnType<ReturnType<typeof useReorder>['handleProps']>

@@ -105,6 +105,14 @@
   input[type="number"] {
     font-family: var(--font-mono);
     width: 80px;
+    /* Rates are typed, not stepped — hide the spinner arrows. */
+    -moz-appearance: textfield;
+    appearance: textfield;
+  }
+  input[type="number"]::-webkit-inner-spin-button,
+  input[type="number"]::-webkit-outer-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
   }
   input:focus,
   select:focus,
@@ -124,7 +132,8 @@
     color: var(--color-ink);
     border: 1px solid var(--color-line2);
     border-radius: 8px;
-    max-width: 420px;
+    /* Never exceed the viewport on narrow screens. */
+    max-width: min(420px, calc(100vw - 24px));
   }
   dialog::backdrop {
     background: rgba(0, 0, 0, 0.6);
@@ -215,6 +224,10 @@
     gap: 2px;
     border-bottom: 1px solid var(--color-line);
     margin: 0 0 20px;
+    /* When the tabs don't fit (narrow windows / phones), scroll the row
+       horizontally instead of overflowing the page. */
+    flex-wrap: nowrap;
+    overflow-x: auto;
   }
   .snav {
     background: none;
@@ -228,6 +241,9 @@
     font-size: 13px;
     border-bottom: 2px solid transparent;
     position: relative;
+    /* Don't shrink or wrap tab labels when the row scrolls. */
+    flex: 0 0 auto;
+    white-space: nowrap;
   }
   .snav.active {
     color: var(--color-ink);
@@ -300,6 +316,11 @@
     color: var(--color-err);
     border-color: transparent;
   }
+  .btn:disabled {
+    opacity: 0.4;
+    /* No hover affordance and no clicks when disabled. */
+    pointer-events: none;
+  }
 
   /* inline delete confirmation (✕ swaps to cancel + filled-red confirm) */
   .delconfirm {
@@ -337,6 +358,16 @@
   }
   .card.dragging {
     opacity: 0.45;
+  }
+  /* Card reorder controls: drag handle + up/down buttons. */
+  .reorder {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+  }
+  .reorder .movebtn {
+    line-height: 1;
+    color: var(--color-muted);
   }
   .draghandle {
     cursor: grab;
@@ -754,6 +785,8 @@
     border-radius: 8px;
     padding: 14px 16px;
     margin-bottom: 14px;
+    /* Wide throughput tables scroll inside the board instead of the page. */
+    overflow-x: auto;
   }
   .board h3 {
     font-family: var(--font-display);
@@ -847,14 +880,93 @@
 }
 
 /* -------------------------------- responsive ------------------------------ */
+
+/* Touch devices: enlarge hit targets and stop iOS from auto-zooming when a
+   form control smaller than 16px gains focus. Keyed on pointer type so the
+   desktop mouse layout is untouched. */
+@media (pointer: coarse) {
+  input[type="text"],
+  input[type="number"],
+  select {
+    font-size: 16px;
+  }
+  .btn.small {
+    padding: 6px 10px;
+  }
+  .seg button {
+    padding: 8px 13px;
+  }
+  .chip button,
+  .chev,
+  .draghandle {
+    padding: 5px 9px;
+  }
+  /* Hide the scrollbar on the scrollable tab row; swipe to reveal more tabs. */
+  .sectionnav {
+    scrollbar-width: none;
+  }
+  .sectionnav::-webkit-scrollbar {
+    display: none;
+  }
+  /* Native drag doesn't fire from touch — hide the handle and rely on the
+     up/down buttons, which work everywhere. */
+  .draghandle {
+    display: none;
+  }
+}
+
+/* Tablet / large phone: tighten the outer gutters. */
 @media (max-width: 700px) {
-  main,
   header,
+  main,
+  footer,
   .worldbar {
     padding-left: 12px;
     padding-right: 12px;
   }
 }
+
+/* Phone: reclaim horizontal space and keep everything within the viewport. */
+@media (max-width: 640px) {
+  body {
+    /* Safety net against any single element widening the page. */
+    overflow-x: hidden;
+  }
+  header {
+    padding-top: 12px;
+  }
+  .brand h1 {
+    font-size: 18px;
+    letter-spacing: 0.1em;
+  }
+  .snav {
+    padding: 11px 12px;
+    font-size: 12px;
+  }
+  .card {
+    padding: 12px;
+  }
+  /* Let the name field shrink instead of forcing the header wider. */
+  .cardhead input.name {
+    min-width: 0;
+    flex: 1 1 140px;
+  }
+  /* Give throughput tables room to breathe while they scroll in the board. */
+  table.flow {
+    min-width: 460px;
+  }
+  /* Platform item pickers: give the block a full-width line of its own
+     (the base rule's flex:1 has basis 0, so plain width:100% is ignored —
+     override the basis) and let the item <select> shrink to fit. */
+  .platitems {
+    min-width: 0;
+    flex-basis: 100%;
+  }
+  .platitem select {
+    min-width: 0;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .chev {
     transition: none;

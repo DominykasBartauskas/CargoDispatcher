@@ -1,6 +1,7 @@
 import { newTrain } from '../lib/model'
 import { useReorder } from '../lib/useReorder'
 import { DeleteButton } from './DeleteButton'
+import { ReorderHandle } from './ReorderHandle'
 import { RouteEditor } from './RouteEditor'
 import type { CarType, Train, Update, World } from '../lib/types'
 
@@ -22,7 +23,9 @@ export function TrainsView({ world, collapsed, update }: Props) {
       if (t) fn(t, w)
     })
 
-  const { handleProps, cardProps, overId, draggingId } = useReorder((fromId, toId) =>
+  const { handleProps, cardProps, overId, draggingId, moveProps } = useReorder(
+    world.trains.map((t) => t.id),
+    (fromId, toId) =>
     update((s) => {
       const arr = s.worlds[s.active].trains
       const from = arr.findIndex((x) => x.id === fromId)
@@ -50,8 +53,8 @@ export function TrainsView({ world, collapsed, update }: Props) {
         }}
       >
         <span className="label">
-          Click a car to cycle engine / freight / fluid · car 0 is always the lead engine · drag ⠿ to
-          reorder
+          Click a car to cycle engine / freight / fluid · car 0 is always the lead engine · drag ⠿ or
+          ↑↓ to reorder
         </span>
         <span style={{ display: 'flex', gap: 6 }}>
           <button
@@ -89,9 +92,7 @@ export function TrainsView({ world, collapsed, update }: Props) {
             {...cardProps(tr.id)}
           >
             <div className="cardhead">
-              <span className="draghandle" title="Drag to reorder" {...handleProps(tr.id)}>
-                ⠿
-              </span>
+              <ReorderHandle handle={handleProps(tr.id)} move={moveProps(tr.id)} />
               <button
                 className={`chev ${closed ? 'closed' : ''}`}
                 title={closed ? 'Expand' : 'Collapse'}
