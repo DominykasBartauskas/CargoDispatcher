@@ -1,6 +1,6 @@
 import { newDronePort } from '../lib/model'
-import { useDialogs } from '../lib/dialogs'
 import { useReorder } from '../lib/useReorder'
+import { DeleteButton } from './DeleteButton'
 import { ItemSelect } from './ItemSelect'
 import type { DronePort, Update, World } from '../lib/types'
 
@@ -11,8 +11,6 @@ interface Props {
 }
 
 export function DronePortsView({ world, collapsed, update }: Props) {
-  const dialogs = useDialogs()
-
   const withPort = (id: string, fn: (p: DronePort) => void) =>
     update((s) => {
       const p = s.worlds[s.active].dronePorts.find((x) => x.id === id)
@@ -28,13 +26,11 @@ export function DronePortsView({ world, collapsed, update }: Props) {
     }),
   )
 
-  const deletePort = async (p: DronePort) => {
-    if (await dialogs.confirm(`Delete ${p.name}?`))
-      update((s) => {
-        const w = s.worlds[s.active]
-        w.dronePorts = w.dronePorts.filter((x) => x.id !== p.id)
-      })
-  }
+  const removePort = (id: string) =>
+    update((s) => {
+      const w = s.worlds[s.active]
+      w.dronePorts = w.dronePorts.filter((x) => x.id !== id)
+    })
 
   return (
     <>
@@ -118,9 +114,7 @@ export function DronePortsView({ world, collapsed, update }: Props) {
               <span className="label">
                 sends {nItems} item{nItems === 1 ? '' : 's'}
               </span>
-              <button className="btn small ghost" onClick={() => deletePort(p)}>
-                ✕
-              </button>
+              <DeleteButton title={`Delete ${p.name}`} onConfirm={() => removePort(p.id)} />
             </div>
 
             {!closed && (

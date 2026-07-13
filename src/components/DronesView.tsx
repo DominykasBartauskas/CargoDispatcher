@@ -1,6 +1,6 @@
 import { newDrone } from '../lib/model'
-import { useDialogs } from '../lib/dialogs'
 import { useReorder } from '../lib/useReorder'
+import { DeleteButton } from './DeleteButton'
 import type { Drone, Update, World } from '../lib/types'
 
 interface Props {
@@ -10,8 +10,6 @@ interface Props {
 }
 
 export function DronesView({ world, collapsed, update }: Props) {
-  const dialogs = useDialogs()
-
   const withDrone = (id: string, fn: (d: Drone) => void) =>
     update((s) => {
       const d = s.worlds[s.active].drones.find((x) => x.id === id)
@@ -27,13 +25,11 @@ export function DronesView({ world, collapsed, update }: Props) {
     }),
   )
 
-  const deleteDrone = async (d: Drone) => {
-    if (await dialogs.confirm(`Delete ${d.name}?`))
-      update((s) => {
-        const w = s.worlds[s.active]
-        w.drones = w.drones.filter((x) => x.id !== d.id)
-      })
-  }
+  const removeDrone = (id: string) =>
+    update((s) => {
+      const w = s.worlds[s.active]
+      w.drones = w.drones.filter((x) => x.id !== id)
+    })
 
   const ports = world.dronePorts
 
@@ -113,9 +109,7 @@ export function DronesView({ world, collapsed, update }: Props) {
                 }}
               />
               <span className="spacer" />
-              <button className="btn small ghost" onClick={() => deleteDrone(dr)}>
-                ✕
-              </button>
+              <DeleteButton title={`Delete ${dr.name}`} onConfirm={() => removeDrone(dr.id)} />
             </div>
 
             {!closed && (

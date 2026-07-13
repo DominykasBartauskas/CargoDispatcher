@@ -1,6 +1,6 @@
 import { newTruck } from '../lib/model'
-import { useDialogs } from '../lib/dialogs'
 import { useReorder } from '../lib/useReorder'
+import { DeleteButton } from './DeleteButton'
 import { RouteEditor } from './RouteEditor'
 import type { Truck, TruckType, Update, World } from '../lib/types'
 
@@ -18,8 +18,6 @@ interface Props {
 }
 
 export function TrucksView({ world, collapsed, update }: Props) {
-  const dialogs = useDialogs()
-
   const withTruck = (id: string, fn: (t: Truck, w: World) => void) =>
     update((s) => {
       const w = s.worlds[s.active]
@@ -36,13 +34,11 @@ export function TrucksView({ world, collapsed, update }: Props) {
     }),
   )
 
-  const deleteTruck = async (t: Truck) => {
-    if (await dialogs.confirm(`Delete ${t.name}?`))
-      update((s) => {
-        const w = s.worlds[s.active]
-        w.trucks = w.trucks.filter((x) => x.id !== t.id)
-      })
-  }
+  const removeTruck = (id: string) =>
+    update((s) => {
+      const w = s.worlds[s.active]
+      w.trucks = w.trucks.filter((x) => x.id !== id)
+    })
 
   return (
     <>
@@ -121,9 +117,7 @@ export function TrucksView({ world, collapsed, update }: Props) {
                 }}
               />
               <span className="spacer" />
-              <button className="btn small ghost" onClick={() => deleteTruck(tk)}>
-                ✕
-              </button>
+              <DeleteButton title={`Delete ${tk.name}`} onConfirm={() => removeTruck(tk.id)} />
             </div>
 
             {!closed && (

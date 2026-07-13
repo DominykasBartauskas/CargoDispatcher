@@ -139,6 +139,30 @@ describe('routes & rules', () => {
   })
 })
 
+describe('inline delete', () => {
+  it('deletes a card when the ✕ is confirmed in place', async () => {
+    const user = userEvent.setup()
+    renderApp()
+    await user.click(screen.getByRole('button', { name: '+ Add train' }))
+    expect(screen.getByDisplayValue('Train 1')).toBeInTheDocument()
+    // the ✕ trigger swaps into a confirm/cancel pair; confirm removes the card
+    await user.click(screen.getByRole('button', { name: 'Delete Train 1' }))
+    await user.click(screen.getByRole('button', { name: 'Confirm delete' }))
+    expect(screen.queryByDisplayValue('Train 1')).not.toBeInTheDocument()
+  })
+
+  it('keeps the card when the delete is cancelled', async () => {
+    const user = userEvent.setup()
+    renderApp()
+    await user.click(screen.getByRole('button', { name: '+ Add train' }))
+    await user.click(screen.getByRole('button', { name: 'Delete Train 1' }))
+    await user.click(screen.getByRole('button', { name: 'Cancel' }))
+    expect(screen.getByDisplayValue('Train 1')).toBeInTheDocument()
+    // reverted back to the ✕ trigger
+    expect(screen.getByRole('button', { name: 'Delete Train 1' })).toBeInTheDocument()
+  })
+})
+
 describe('dialogs', () => {
   it('confirms world deletion (and recreates the last world)', async () => {
     const user = userEvent.setup()

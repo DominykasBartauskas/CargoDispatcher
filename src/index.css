@@ -301,6 +301,28 @@
     border-color: transparent;
   }
 
+  /* inline delete confirmation (✕ swaps to cancel + filled-red confirm) */
+  .delconfirm {
+    display: inline-flex;
+    gap: 4px;
+    align-items: center;
+  }
+  .btn.delgo {
+    background: var(--color-err);
+    border-color: var(--color-err);
+    color: #1a0d0a;
+    font-weight: 600;
+  }
+  .btn.delgo:hover {
+    filter: brightness(1.1);
+    color: #000;
+  }
+  /* keep the cancel ✕ neutral so only the confirm reads as destructive */
+  .delconfirm .btn.ghost:hover {
+    color: var(--color-ink);
+    border-color: transparent;
+  }
+
   /* ---------- cards & generic ---------- */
   .card {
     background: var(--color-panel);

@@ -1,6 +1,6 @@
 import { newTruckStation } from '../lib/model'
-import { useDialogs } from '../lib/dialogs'
 import { useReorder } from '../lib/useReorder'
+import { DeleteButton } from './DeleteButton'
 import { ItemSelect } from './ItemSelect'
 import type { TruckStation, TruckStationType, Update, World } from '../lib/types'
 
@@ -11,8 +11,6 @@ interface Props {
 }
 
 export function TruckStationsView({ world, collapsed, update }: Props) {
-  const dialogs = useDialogs()
-
   const withStation = (id: string, fn: (st: TruckStation) => void) =>
     update((s) => {
       const st = s.worlds[s.active].truckStations.find((x) => x.id === id)
@@ -28,13 +26,11 @@ export function TruckStationsView({ world, collapsed, update }: Props) {
     }),
   )
 
-  const deleteStation = async (st: TruckStation) => {
-    if (await dialogs.confirm(`Delete ${st.name}?`))
-      update((s) => {
-        const w = s.worlds[s.active]
-        w.truckStations = w.truckStations.filter((x) => x.id !== st.id)
-      })
-  }
+  const removeStation = (id: string) =>
+    update((s) => {
+      const w = s.worlds[s.active]
+      w.truckStations = w.truckStations.filter((x) => x.id !== id)
+    })
 
   return (
     <>
@@ -119,9 +115,7 @@ export function TruckStationsView({ world, collapsed, update }: Props) {
               <span className="label">
                 {st.type === 'fluid' ? 'Fluid' : 'Regular'} · {st.mode === 'load' ? 'Load' : 'Unload'}
               </span>
-              <button className="btn small ghost" onClick={() => deleteStation(st)}>
-                ✕
-              </button>
+              <DeleteButton title={`Delete ${st.name}`} onConfirm={() => removeStation(st.id)} />
             </div>
 
             {!closed && (

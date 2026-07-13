@@ -1,6 +1,6 @@
 import { newPlatform, newStation } from '../lib/model'
-import { useDialogs } from '../lib/dialogs'
 import { useReorder } from '../lib/useReorder'
+import { DeleteButton } from './DeleteButton'
 import { ItemSelect } from './ItemSelect'
 import type { Platform, PlatformType, Station, Update, World } from '../lib/types'
 
@@ -11,8 +11,6 @@ interface Props {
 }
 
 export function StationsView({ world, collapsed, update }: Props) {
-  const dialogs = useDialogs()
-
   const withStation = (id: string, fn: (st: Station, w: World) => void) =>
     update((s) => {
       const w = s.worlds[s.active]
@@ -34,13 +32,11 @@ export function StationsView({ world, collapsed, update }: Props) {
     }),
   )
 
-  const deleteStation = async (st: Station) => {
-    if (await dialogs.confirm(`Delete ${st.name}?`))
-      update((s) => {
-        const w = s.worlds[s.active]
-        w.stations = w.stations.filter((x) => x.id !== st.id)
-      })
-  }
+  const removeStation = (id: string) =>
+    update((s) => {
+      const w = s.worlds[s.active]
+      w.stations = w.stations.filter((x) => x.id !== id)
+    })
 
   return (
     <>
@@ -131,9 +127,7 @@ export function StationsView({ world, collapsed, update }: Props) {
                   + Platform
                 </button>
               )}
-              <button className="btn small ghost" onClick={() => deleteStation(st)}>
-                ✕
-              </button>
+              <DeleteButton title={`Delete ${st.name}`} onConfirm={() => removeStation(st.id)} />
             </div>
 
             {!closed && (
