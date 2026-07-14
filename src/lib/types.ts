@@ -98,6 +98,9 @@ export interface World {
   truckStations: TruckStation[]
   drones: Drone[]
   dronePorts: DronePort[]
+  /** User-defined items (the "Other" catalog group), on top of the built-in
+      catalog. Free text — treated as solids everywhere. */
+  customItems: string[]
 }
 
 export interface AppState {

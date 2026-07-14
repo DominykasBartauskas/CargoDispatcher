@@ -1,16 +1,28 @@
 import { useEffect, useRef, useState } from 'react'
-import type { World } from '../lib/types'
 
 const inset = 'var(--color-inset)'
 const ink = 'var(--color-ink)'
 const line = 'var(--color-line)'
 
 /**
- * Export dialog: shows the world JSON with copy + best-effort download.
+ * Generic export dialog: shows text with copy + best-effort download.
  * Published/sandboxed pages often block programmatic downloads, so the
- * clipboard path is the reliable one there.
+ * clipboard path is the reliable one there. Used for both world JSON and the
+ * custom-items list.
  */
-export function ExportDialog({ world, onClose }: { world: World | null; onClose: () => void }) {
+export function ExportDialog({
+  open,
+  title,
+  text,
+  filename,
+  onClose,
+}: {
+  open: boolean
+  title: string
+  text: string
+  filename: string
+  onClose: () => void
+}) {
   const dlgRef = useRef<HTMLDialogElement>(null)
   const taRef = useRef<HTMLTextAreaElement>(null)
   const [copyLabel, setCopyLabel] = useState('Copy to clipboard')
@@ -18,17 +30,13 @@ export function ExportDialog({ world, onClose }: { world: World | null; onClose:
   useEffect(() => {
     const dlg = dlgRef.current
     if (!dlg) return
-    if (world && !dlg.open) {
+    if (open && !dlg.open) {
       setCopyLabel('Copy to clipboard')
       dlg.showModal()
-    } else if (!world && dlg.open) {
+    } else if (!open && dlg.open) {
       dlg.close()
     }
-  }, [world])
-
-  const text = world ? JSON.stringify(world, null, 2) : ''
-  const filename =
-    (world?.name.replace(/[^\w\- ]+/g, '').trim().replace(/\s+/g, '-').toLowerCase() || 'world') + '.json'
+  }, [open])
 
   const flash = (ok: boolean) => {
     setCopyLabel(ok ? 'Copied ✓' : 'Copy failed, select and copy manually')
@@ -56,7 +64,7 @@ export function ExportDialog({ world, onClose }: { world: World | null; onClose:
     const ta = taRef.current
     if (!ta) return
     try {
-      const blob = new Blob([ta.value], { type: 'application/json' })
+      const blob = new Blob([ta.value], { type: 'text/plain' })
       const a = document.createElement('a')
       a.href = URL.createObjectURL(blob)
       a.download = filename
@@ -70,7 +78,7 @@ export function ExportDialog({ world, onClose }: { world: World | null; onClose:
   return (
     <dialog ref={dlgRef} onCancel={(e) => { e.preventDefault(); onClose() }} style={{ maxWidth: 680, width: '92vw' }}>
       <div className="label" style={{ marginBottom: 8 }}>
-        {world ? `Export "${world.name}" as JSON` : 'Export world JSON'}
+        {title}
       </div>
       <textarea
         ref={taRef}
@@ -92,7 +100,7 @@ export function ExportDialog({ world, onClose }: { world: World | null; onClose:
       />
       <div className="hint" style={{ margin: '8px 0 12px' }}>
         Some environments (like published artifact pages) block downloads. If the download button does
-        nothing, copy the JSON and save it as a .json file.
+        nothing, copy the text and save it to a file.
       </div>
       <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
         <button className="btn" onClick={onClose}>

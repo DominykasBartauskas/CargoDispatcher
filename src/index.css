@@ -93,7 +93,8 @@
   }
   input[type="text"],
   input[type="number"],
-  select {
+  select,
+  textarea {
     background: var(--color-inset);
     border: 1px solid var(--color-line);
     color: var(--color-ink);
@@ -116,6 +117,7 @@
   }
   input:focus,
   select:focus,
+  textarea:focus,
   button:focus-visible {
     outline: 2px solid var(--color-accent);
     outline-offset: 1px;
@@ -448,6 +450,17 @@
     color: var(--color-faint);
     font-size: 12px;
     margin-top: 6px;
+  }
+
+  /* ---------- custom-items editor ---------- */
+  .customlist {
+    display: block;
+    width: 100%;
+    min-height: 220px;
+    margin-top: 12px;
+    resize: vertical;
+    font-family: var(--font-mono);
+    line-height: 1.6;
   }
 
   /* ---------- consist (train car) editor ---------- */

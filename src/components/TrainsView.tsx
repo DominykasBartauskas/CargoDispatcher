@@ -159,6 +159,7 @@ export function TrainsView({ world, collapsed, update }: Props) {
                   stations={world.stations}
                   withStops={(fn) => withTrain(tr.id, (t) => fn(t.stops))}
                   emptyHint="Add train stations first, then define this train's route here."
+                  custom={world.customItems}
                 />
               </>
             )}

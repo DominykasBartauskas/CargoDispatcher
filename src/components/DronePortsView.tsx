@@ -127,6 +127,7 @@ export function DronePortsView({ world, collapsed, update }: Props) {
                       <div className="platitem" key={j}>
                         <ItemSelect
                           kind="solid"
+                          custom={world.customItems}
                           value={pi.item}
                           onChange={(v) =>
                             withPort(p.id, (x) => {

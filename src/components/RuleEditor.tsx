@@ -8,10 +8,12 @@ interface Props {
   withRule: (fn: (r: Rule) => void) => void
   /** Which catalog slice the "+ add item" picker offers (default: all). */
   itemKind?: 'all' | 'solid' | 'fluid'
+  /** The active world's user-defined items (the "Other" group). */
+  custom?: string[]
 }
 
 /** Load/unload rule editor shown inside each route stop (trains and trucks). */
-export function RuleEditor({ rule, kind, withRule, itemKind = 'all' }: Props) {
+export function RuleEditor({ rule, kind, withRule, itemKind = 'all', custom }: Props) {
   return (
     <div className="rulewrap">
       <select
@@ -35,6 +37,7 @@ export function RuleEditor({ rule, kind, withRule, itemKind = 'all' }: Props) {
           <ItemSelect
             value=""
             kind={itemKind}
+            custom={custom}
             placeholder="+ add item"
             onChange={(v) => {
               if (!v) return

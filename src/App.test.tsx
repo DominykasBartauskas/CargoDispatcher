@@ -189,6 +189,26 @@ describe('dialogs', () => {
     await user.click(screen.getByRole('button', { name: 'Export JSON' }))
     expect(await screen.findByText('Export "World 1" as JSON')).toBeInTheDocument()
   })
+
+  it('edits custom items from the world-bar dialog; they surface in item pickers', async () => {
+    const user = userEvent.setup()
+    const { container } = renderApp()
+    await user.click(screen.getByRole('button', { name: 'Custom items' }))
+
+    const ta = container.querySelector('textarea.customlist') as HTMLTextAreaElement
+    await user.click(ta)
+    await user.type(ta, 'Ficsit Merch{Enter}Coffee Cup')
+
+    const dialog = ta.closest('dialog') as HTMLDialogElement
+    await user.click(within(dialog).getByRole('button', { name: 'Close' }))
+
+    await user.click(screen.getByRole('button', { name: 'Train Stations' }))
+    await user.click(screen.getByRole('button', { name: '+ Add train station' }))
+
+    // the regular/load platform's item picker now offers the custom items
+    expect(screen.getByRole('option', { name: 'Ficsit Merch' })).toBeInTheDocument()
+    expect(screen.getByRole('option', { name: 'Coffee Cup' })).toBeInTheDocument()
+  })
 })
 
 describe('analysis badge', () => {

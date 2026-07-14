@@ -12,10 +12,12 @@ interface Props {
   emptyHint: string
   /** Catalog slice the rule item pickers offer (default: all). */
   itemKind?: 'all' | 'solid' | 'fluid'
+  /** The active world's user-defined items (the "Other" group). */
+  custom?: string[]
 }
 
 /** Shared looped-route / stop builder used by trains and trucks. */
-export function RouteEditor({ stops, stations, withStops, emptyHint, itemKind }: Props) {
+export function RouteEditor({ stops, stations, withStops, emptyHint, itemKind, custom }: Props) {
   if (!stations.length)
     return (
       <div className="routeblock">
@@ -79,6 +81,7 @@ export function RouteEditor({ stops, stations, withStops, emptyHint, itemKind }:
               rule={stop.load}
               kind="load"
               itemKind={itemKind}
+              custom={custom}
               withRule={(fn) => withStops((ss) => ss[si] && fn(ss[si].load))}
             />
             <span className="rlabel unload">Unload</span>
@@ -86,6 +89,7 @@ export function RouteEditor({ stops, stations, withStops, emptyHint, itemKind }:
               rule={stop.unload}
               kind="unload"
               itemKind={itemKind}
+              custom={custom}
               withRule={(fn) => withStops((ss) => ss[si] && fn(ss[si].unload))}
             />
           </div>

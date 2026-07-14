@@ -17,8 +17,22 @@ import type {
 export const uid = (): string =>
   crypto.randomUUID ? crypto.randomUUID() : 'id-' + Math.random().toString(36).slice(2) + Date.now()
 
+/** Turn a display name into a safe, lowercase file-name stem. */
+export const slugify = (name: string, fallback: string): string =>
+  name.replace(/[^\w\- ]+/g, '').trim().replace(/\s+/g, '-').toLowerCase() || fallback
+
 export function newWorld(name: string): World {
-  return { id: uid(), name, trains: [], stations: [], trucks: [], truckStations: [], drones: [], dronePorts: [] }
+  return {
+    id: uid(),
+    name,
+    trains: [],
+    stations: [],
+    trucks: [],
+    truckStations: [],
+    drones: [],
+    dronePorts: [],
+    customItems: [],
+  }
 }
 export function newTrain(n: number): Train {
   return { id: uid(), name: 'Train ' + n, cars: ['E', 'F', 'F'], stops: [] }
@@ -103,6 +117,10 @@ export function migrateWorld(w: World): World {
     ...p,
     items: Array.isArray(p.items) ? p.items : [],
   }))
+  /* Custom items were added last; backfill and keep only non-empty strings. */
+  w.customItems = Array.isArray(w.customItems)
+    ? w.customItems.filter((i): i is string => typeof i === 'string' && i.trim() !== '')
+    : []
   return w
 }
 
@@ -110,7 +128,10 @@ export function normalizeState(s: AppState | null | undefined): AppState | null 
   if (!s || !Array.isArray(s.worlds) || !s.worlds.length) return null
   s.worlds.forEach(migrateWorld)
   s.active = Math.min(s.active || 0, s.worlds.length - 1)
-  s.section = !s.section || (s.section as string) === 'routes' ? 'trains' : s.section
+  /* 'routes' was the old trains section; 'items' was a short-lived custom-items
+     section that is now a dialog — both fall back to trains. */
+  s.section =
+    !s.section || (['routes', 'items'] as string[]).includes(s.section) ? 'trains' : s.section
   s.collapsed = s.collapsed || {}
   return s
 }

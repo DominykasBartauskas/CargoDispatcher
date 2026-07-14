@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { analyze } from './lib/analysis'
-import { defaultState } from './lib/model'
+import { defaultState, slugify } from './lib/model'
 import { backendNote, loadInitialState, writeState } from './lib/storage'
 import type { AppState, World } from './lib/types'
 import { WorldBar } from './components/WorldBar'
@@ -11,6 +11,7 @@ import { TrucksView } from './components/TrucksView'
 import { TruckStationsView } from './components/TruckStationsView'
 import { DronesView } from './components/DronesView'
 import { DronePortsView } from './components/DronePortsView'
+import { CustomItemsDialog } from './components/CustomItemsDialog'
 import { AnalysisView } from './components/AnalysisView'
 import { ExportDialog } from './components/ExportDialog'
 import { ImportDialog } from './components/ImportDialog'
@@ -21,6 +22,7 @@ function App() {
   const [state, setState] = useState<AppState>(defaultState)
   const [exportWorld, setExportWorld] = useState<World | null>(null)
   const [importOpen, setImportOpen] = useState(false)
+  const [customItemsOpen, setCustomItemsOpen] = useState(false)
   const ready = useRef(false)
 
   const update = useCallback((fn: (s: AppState) => void) => {
@@ -71,6 +73,7 @@ function App() {
         update={update}
         onExport={setExportWorld}
         onImport={() => setImportOpen(true)}
+        onCustomItems={() => setCustomItemsOpen(true)}
       />
 
       <main>
@@ -96,7 +99,13 @@ function App() {
         <span>{NOTE.base}</span> <span id="storageNote">{NOTE.note}</span>
       </footer>
 
-      <ExportDialog world={exportWorld} onClose={() => setExportWorld(null)} />
+      <ExportDialog
+        open={!!exportWorld}
+        title={exportWorld ? `Export "${exportWorld.name}" as JSON` : ''}
+        text={exportWorld ? JSON.stringify(exportWorld, null, 2) : ''}
+        filename={(exportWorld ? slugify(exportWorld.name, 'world') : 'world') + '.json'}
+        onClose={() => setExportWorld(null)}
+      />
       <ImportDialog
         open={importOpen}
         onClose={() => setImportOpen(false)}
@@ -106,6 +115,12 @@ function App() {
             s.active = s.worlds.length - 1
           })
         }
+      />
+      <CustomItemsDialog
+        open={customItemsOpen}
+        world={world}
+        update={update}
+        onClose={() => setCustomItemsOpen(false)}
       />
     </>
   )

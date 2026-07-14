@@ -43,6 +43,7 @@ const world = (stations: Station[], trains: Train[]): World => ({
   truckStations: [],
   drones: [],
   dronePorts: [],
+  customItems: [],
 })
 
 /* ---- truck builders ---- */
@@ -63,6 +64,7 @@ const truckWorld = (truckStations: TruckStation[], trucks: Truck[]): World => ({
   truckStations,
   drones: [],
   dronePorts: [],
+  customItems: [],
 })
 
 /* ---- drone builders ---- */
@@ -82,6 +84,7 @@ const droneWorld = (dronePorts: DronePort[], drones: Drone[]): World => ({
   truckStations: [],
   drones,
   dronePorts,
+  customItems: [],
 })
 
 describe('helpers', () => {

@@ -121,7 +121,7 @@ export function TruckStationsView({ world, collapsed, update }: Props) {
 
             {!closed && (
               <div className="plats">
-                <DockRow st={st} withStation={withStation} />
+                <DockRow st={st} custom={world.customItems} withStation={withStation} />
               </div>
             )}
           </div>
@@ -133,9 +133,11 @@ export function TruckStationsView({ world, collapsed, update }: Props) {
 
 function DockRow({
   st,
+  custom,
   withStation,
 }: {
   st: TruckStation
+  custom: string[]
   withStation: (id: string, fn: (st: TruckStation) => void) => void
 }) {
   const setType = (type: TruckStationType) =>
@@ -206,6 +208,7 @@ function DockRow({
             <div className="platitem" key={j}>
               <ItemSelect
                 kind="solid"
+                custom={custom}
                 value={pi.item}
                 onChange={(v) =>
                   withStation(st.id, (x) => {

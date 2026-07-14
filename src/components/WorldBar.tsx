@@ -7,9 +7,10 @@ interface Props {
   update: Update
   onExport: (world: World) => void
   onImport: () => void
+  onCustomItems: () => void
 }
 
-export function WorldBar({ state, update, onExport, onImport }: Props) {
+export function WorldBar({ state, update, onExport, onImport, onCustomItems }: Props) {
   const dialogs = useDialogs()
   const w = state.worlds[state.active]
 
@@ -81,6 +82,9 @@ export function WorldBar({ state, update, onExport, onImport }: Props) {
         </button>
         <button className="btn small" onClick={onImport}>
           Import JSON
+        </button>
+        <button className="btn small" onClick={onCustomItems}>
+          Custom items
         </button>
         <button className="btn small danger" onClick={deleteWorld}>
           Delete world

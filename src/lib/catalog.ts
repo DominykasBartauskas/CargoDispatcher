@@ -28,3 +28,51 @@ const FLUID_SET = new Set(FLUID_GROUP[1].map((f) => f.toLowerCase()))
 
 export const isFluid = (item: string | null | undefined): boolean =>
   FLUID_SET.has(String(item ?? '').toLowerCase())
+
+/** Label of the group holding a world's user-defined items. */
+export const CUSTOM_GROUP_LABEL = 'Other'
+
+/**
+ * Parse the custom-items editor (one item per line) into a clean list:
+ * trimmed, blank lines dropped, duplicates removed (first wins), and any name
+ * already in the built-in catalog dropped so it can't appear twice. Insertion
+ * order is preserved — it's the user's list.
+ */
+export function parseCustomItems(text: string): string[] {
+  const seen = new Set<string>()
+  const out: string[] = []
+  for (const line of text.split('\n')) {
+    const item = line.trim()
+    if (!item || seen.has(item) || ITEM_SET.has(item)) continue
+    seen.add(item)
+    out.push(item)
+  }
+  return out
+}
+
+/**
+ * Parse an imported custom-items payload into a clean list. Accepts a plain
+ * newline list, a JSON array of strings, or a full world/object export with a
+ * `customItems` array — then applies the same cleaning as parseCustomItems.
+ */
+export function parseCustomItemsImport(text: string): string[] {
+  const trimmed = text.trim()
+  if (trimmed.startsWith('[') || trimmed.startsWith('{')) {
+    try {
+      const data = JSON.parse(trimmed)
+      const arr = Array.isArray(data)
+        ? data
+        : data && Array.isArray(data.customItems)
+          ? data.customItems
+          : null
+      if (arr) return parseCustomItems(arr.map((x: unknown) => String(x)).join('\n'))
+    } catch {
+      /* not JSON — fall through to newline parsing */
+    }
+  }
+  return parseCustomItems(text)
+}
+
+/** Merge two clean-or-raw custom-item lists, de-duplicated, existing first. */
+export const mergeCustomItems = (existing: string[], incoming: string[]): string[] =>
+  parseCustomItems([...existing, ...incoming].join('\n'))

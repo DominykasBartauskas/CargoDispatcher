@@ -140,6 +140,7 @@ export function StationsView({ world, collapsed, update }: Props) {
                     p={p}
                     i={i}
                     stationId={st.id}
+                    custom={world.customItems}
                     withStation={withStation}
                     withPlatform={withPlatform}
                   />
@@ -157,12 +158,14 @@ function PlatformRow({
   p,
   i,
   stationId,
+  custom,
   withStation,
   withPlatform,
 }: {
   p: Platform
   i: number
   stationId: string
+  custom: string[]
   withStation: (id: string, fn: (st: Station, w: World) => void) => void
   withPlatform: (id: string, i: number, fn: (p: Platform) => void) => void
 }) {
@@ -243,6 +246,7 @@ function PlatformRow({
             <div className="platitem" key={j}>
               <ItemSelect
                 kind="solid"
+                custom={custom}
                 value={pi.item}
                 onChange={(v) =>
                   withPlatform(stationId, i, (p) => {

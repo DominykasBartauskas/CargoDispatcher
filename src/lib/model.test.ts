@@ -118,6 +118,18 @@ describe('migrateWorld', () => {
     expect(w.truckStations).toEqual([])
     expect(w.drones).toEqual([])
     expect(w.dronePorts).toEqual([])
+    expect(w.customItems).toEqual([])
+  })
+  it('sanitizes custom items, dropping blanks and non-strings', () => {
+    const w = {
+      id: 'w',
+      name: 'W',
+      trains: [],
+      stations: [],
+      customItems: ['Merch', '  ', '', 42, null, 'Coffee'],
+    } as unknown as World
+    migrateWorld(w)
+    expect(w.customItems).toEqual(['Merch', 'Coffee'])
   })
   it('sanitizes an unknown truck type and truck-station shape', () => {
     const w = {

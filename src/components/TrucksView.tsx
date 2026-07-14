@@ -150,6 +150,7 @@ export function TrucksView({ world, collapsed, update }: Props) {
                   withStops={(fn) => withTruck(tk.id, (t) => fn(t.stops))}
                   emptyHint="Add truck stations first, then define this truck's route here."
                   itemKind={fluid ? 'fluid' : 'solid'}
+                  custom={world.customItems}
                 />
               </>
             )}
