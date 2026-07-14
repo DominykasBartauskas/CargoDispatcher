@@ -78,3 +78,13 @@ persistence, analysis engine, and project conventions.
 
 React 19, TypeScript, Vite, Tailwind CSS v4 (design system in `src/index.css`),
 oxlint, and Vitest + Testing Library + jsdom for tests.
+
+## Acknowledgments
+
+Thanks to Reddit user
+[Odd_Secretary5980](https://www.reddit.com/user/Odd_Secretary5980/) for the
+inspiration.
+
+## License
+
+[MIT](./LICENSE) © Dominykas Bartauskas
