@@ -1,0 +1,9 @@
+services:
+  app:
+    build: .
+    image: cargo-dispatcher
+    container_name: cargo-dispatcher
+    # Browse at http://localhost:8080 — change the left number to use another host port.
+    ports:
+      - "8080:80"
+    restart: unless-stopped

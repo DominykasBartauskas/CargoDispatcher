@@ -42,6 +42,26 @@ make install     # install dependencies
 make dev         # start the dev server (make dev PORT=3000 to override)
 ```
 
+### Run with Docker
+
+No toolchain required — just Docker. This builds the production bundle and
+serves it with nginx:
+
+```sh
+docker compose up -d      # build + start; open http://localhost:8080
+docker compose down       # stop and remove the container
+```
+
+The app is a fully client-side SPA (worlds persist in your browser), so nothing
+else is needed. Change the host port by editing the `ports` mapping in
+[`docker-compose.yml`](./docker-compose.yml) (e.g. `"3000:80"`). To build and
+run the image without Compose:
+
+```sh
+docker build -t cargo-dispatcher .
+docker run --rm -p 8080:80 cargo-dispatcher
+```
+
 ## Commands
 
 | Command | What it does |
